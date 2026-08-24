@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "module": "node18",
+    "target": "es2022",
+    "lib": ["es2023"],
+    "outDir": "lib",
+    "rootDir": "src",
+    "sourceMap": true,
+    "strict": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src"]
+}

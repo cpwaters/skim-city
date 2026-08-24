@@ -1,0 +1,158 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  # Lets you re-deploy from the Actions tab without pushing a commit.
+  workflow_dispatch:
+
+concurrency:
+  # Never let two deploys race each other onto the same site.
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+  VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+  VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+  VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+  VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+  VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+  VITE_RECAPTCHA_SITE_KEY: ${{ vars.VITE_RECAPTCHA_SITE_KEY }}
+  FIREBASE_PROJECT: skimcity-bac3b
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Everything here works on the free Spark plan.
+  # ---------------------------------------------------------------------------
+  site:
+    name: Site, rules and indexes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://skimcity-bac3b.web.app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+            functions/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm --prefix web ci
+          npm --prefix functions ci
+
+      - name: Sync shared domain types
+        run: npm run sync:types
+
+      - name: Verify before shipping
+        # The same checks CI runs. A push straight to main must not skip them.
+        run: |
+          npm --prefix web run lint
+          npm --prefix functions run build
+          npx --yes firebase-tools@latest emulators:exec --only firestore --project "$FIREBASE_PROJECT" "npm test"
+
+      - name: Build web app
+        run: npm --prefix web run build
+
+      - name: Authenticate to Firebase
+        # Written straight from the secret to a file outside the workspace so it
+        # cannot be picked up by a later step, committed, or uploaded as an
+        # artifact. Never echoed.
+        run: |
+          install -m 600 /dev/null "$RUNNER_TEMP/gcp-key.json"
+          printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/gcp-key.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/gcp-key.json" >> "$GITHUB_ENV"
+
+      - name: Deploy security rules and indexes
+        # Rules go out before the site: if a release tightens a rule, it should
+        # be live before the code that depends on it.
+        run: |
+          npx --yes firebase-tools@latest deploy \
+            --only firestore:rules,firestore:indexes,storage \
+            --project "$FIREBASE_PROJECT" \
+            --non-interactive
+
+      - name: Deploy hosting
+        run: |
+          npx --yes firebase-tools@latest deploy \
+            --only hosting \
+            --project "$FIREBASE_PROJECT" \
+            --non-interactive \
+            --message "${{ github.sha }}"
+
+      - name: Remove credentials
+        if: always()
+        run: rm -f "$RUNNER_TEMP/gcp-key.json"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Deployed"
+            echo ""
+            echo "- Site: https://skimcity-bac3b.web.app"
+            echo "- Commit: \`${{ github.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Cloud Functions require the Blaze (pay-as-you-go) plan, because they make
+  # outbound calls to Square, Stripe, Resend and Telegram. Until the project is
+  # upgraded this job is skipped rather than failing the whole deploy — the
+  # marketing site still ships. Set the repository variable DEPLOY_FUNCTIONS to
+  # "true" once Blaze is enabled.
+  # ---------------------------------------------------------------------------
+  functions:
+    name: Cloud Functions
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: site
+    if: vars.DEPLOY_FUNCTIONS == 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm --prefix functions ci
+
+      - name: Sync shared domain types
+        run: npm run sync:types
+
+      - name: Authenticate to Firebase
+        run: |
+          install -m 600 /dev/null "$RUNNER_TEMP/gcp-key.json"
+          printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/gcp-key.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/gcp-key.json" >> "$GITHUB_ENV"
+
+      - name: Deploy functions
+        # Secret *values* are never passed from CI. They live in Google Secret
+        # Manager, set once with `firebase functions:secrets:set NAME`, and the
+        # deployed function is granted access to them by name.
+        run: |
+          npx --yes firebase-tools@latest deploy \
+            --only functions \
+            --project "$FIREBASE_PROJECT" \
+            --non-interactive \
+            --force
+
+      - name: Remove credentials
+        if: always()
+        run: rm -f "$RUNNER_TEMP/gcp-key.json"

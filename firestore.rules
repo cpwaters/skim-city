@@ -1,0 +1,100 @@
+rules_version = '2';
+
+// SKIM CITY — Firestore security rules
+//
+// Principle: the browser never reads or writes business data directly.
+// Everything the public needs goes through Cloud Functions, with one
+// deliberate exception: the sanitised `availability` collection, which is
+// public-read so the booking calendar can render without a round trip.
+//
+// Firestore rules cannot restrict which *fields* a read returns, so anything
+// publicly readable must contain no customer data at all. That is why
+// `availability` (free/taken booleans) is kept separate from `dayBookings`
+// (the private mirror holding job ids).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Public booking calendar. Booleans only — never customer data.
+    // Written exclusively by Cloud Functions via the Admin SDK.
+    match /availability/{date} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // CRM collections: admin custom claim required.
+    // Note this gates on a custom claim, not on an email address — claims are
+    // set server-side and cannot be forged by the client.
+    match /customers/{customerId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /jobs/{jobId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /quotes/{quoteId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /invoices/{invoiceId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Payments are a ledger. Admins may read; only Functions (Admin SDK,
+    // which bypasses these rules) may write, so the record of money received
+    // can never be edited from a browser session.
+    match /payments/{paymentId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /dayBookings/{date} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /messageLog/{messageId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /settings/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Public gallery. World-readable because the marketing site renders it, and
+    // the images themselves already sit at public Storage URLs — so `published`
+    // hides a photo from the site, it does not make it secret. Nothing private
+    // belongs in this collection.
+    match /galleryItems/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Customer reviews.
+    //
+    // Deliberately NOT publicly readable, unlike the gallery: these documents
+    // hold review-request tokens and unmoderated text. Anyone who could read
+    // the collection could harvest a token and post a review as that customer.
+    // The marketing site reads published reviews through the getReviews
+    // callable, which returns display fields only.
+    match /reviews/{reviewId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Invoice numbering counter — Functions only, always transactional.
+    match /counters/{counterId} {
+      allow read, write: if false;
+    }
+
+    // Anything not matched above is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

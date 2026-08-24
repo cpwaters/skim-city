@@ -1,0 +1,8 @@
+node_modules/
+
+# Compiled output only. The leading slash matters: without it this also
+# matches functions/src/lib/, which is application source.
+/lib/
+
+# Local secrets and overrides — never committed.
+*.local
