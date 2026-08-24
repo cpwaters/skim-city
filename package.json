@@ -18,7 +18,8 @@
     "deploy:functions": "firebase deploy --only functions",
     "deploy:rules": "firebase deploy --only firestore:rules,storage",
     "test": "node --test \"tests/**/*.test.mjs\"",
-    "test:rules": "node --test tests/rules.test.mjs"
+    "test:rules": "node --test tests/rules.test.mjs",
+    "build:preview": "npm run sync:types && npm --prefix web run build:preview && node scripts/build-preview.mjs"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",

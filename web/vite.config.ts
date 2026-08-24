@@ -26,8 +26,21 @@ export default defineConfig(({ mode }) => {
     }
   }
 
+  // `--mode preview` produces a single self-contained bundle for scripts/
+  // build-preview.mjs to inline into one HTML file. The production guard above
+  // deliberately does not apply: a preview has no backend to talk to.
+  const singleFile = mode === 'preview';
+
   return {
     plugins: [react(), tailwindcss()],
+    build: singleFile
+      ? {
+          // Everything in one chunk, so there are no sibling files to fetch.
+          rollupOptions: { output: { inlineDynamicImports: true } },
+          assetsInlineLimit: 100 * 1024 * 1024,
+          cssCodeSplit: false,
+        }
+      : {},
     // The CRM is only ever loaded by one person; the marketing site is what
     // needs to be fast. React.lazy() in App.tsx splits the whole /app tree into
     // its own chunk, so the public bundle never carries the CRM.

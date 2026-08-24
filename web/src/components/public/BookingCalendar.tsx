@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getAvailability } from '../../lib/callables';
+import { BUSINESS } from '../../lib/business';
+import { formatPhone, whatsappLink } from '../../lib/format';
 import { dayOfWeek, todayIso } from '../../lib/format';
-import { Spinner, ErrorState } from '../ui/States';
+import { Spinner } from '../ui/States';
 import type { Availability, JobType } from '../../types/domain';
 
 interface Rules {
@@ -55,9 +57,12 @@ export function BookingCalendar({
         setDays(result.days);
         setRules(result.rules);
       })
-      .catch((cause: unknown) => {
+      .catch(() => {
         if (cancelled) return;
-        setError(cause instanceof Error ? cause.message : 'Could not load the calendar.');
+        // The underlying reason is for our logs, not the customer's screen:
+        // a raw callable error reads as "internal [0]", which tells them
+        // nothing and looks broken. Give them a way to reach us instead.
+        setError('unavailable');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -74,7 +79,39 @@ export function BookingCalendar({
   const canGoForward = rules ? `${month}-01` < rules.latestDate.slice(0, 8) + '01' : true;
 
   if (error) {
-    return <ErrorState message={error} retry={() => setMonth((value) => value)} />;
+    return (
+      <div className="bg-noir-800 border border-noir-700 rounded-[3px] p-6 sm:p-8 text-center">
+        <div aria-hidden="true" className="mx-auto mb-4 h-px w-12 bg-maroon-500" />
+        <h3 className="display text-base text-bone mb-2">Can't load the calendar</h3>
+        <p className="text-sm text-smoke max-w-sm mx-auto mb-6">
+          Something's up at our end — it's not you. Give us a ring or send a message and
+          we'll get you a date sorted the quick way.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <a
+            href={`tel:${BUSINESS.phone}`}
+            className="inline-flex items-center justify-center px-5 py-3 rounded-[2px] bg-city-500 text-noir-900 font-display uppercase text-sm tracking-[0.1em] hover:bg-city-600 transition-colors"
+          >
+            {formatPhone(BUSINESS.phone)}
+          </a>
+          <a
+            href={whatsappLink(BUSINESS.phone, BUSINESS.whatsappGreeting)}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center justify-center px-5 py-3 rounded-[2px] border border-noir-600 text-bone font-display uppercase text-sm tracking-[0.1em] hover:border-city-700 transition-colors"
+          >
+            WhatsApp
+          </a>
+        </div>
+        <button
+          type="button"
+          onClick={() => setMonth((value) => value)}
+          className="mt-5 text-xs text-smoke hover:text-city-500 underline underline-offset-4 cursor-pointer"
+        >
+          Try the calendar again
+        </button>
+      </div>
+    );
   }
 
   return (
