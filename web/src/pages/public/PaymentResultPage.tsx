@@ -22,7 +22,7 @@ export function PaymentResultPage() {
     <div className="min-h-dvh grid place-items-center bg-noir-900 spotlight hatch px-5 py-16">
       <div className="w-full max-w-lg text-center">
         <div className="mb-10 flex justify-center">
-          <Logo size="md" />
+          <Logo size="md" showTagline />
         </div>
 
         <div className="bg-noir-800 border border-noir-700 rounded-[3px] p-8 sm:p-10">

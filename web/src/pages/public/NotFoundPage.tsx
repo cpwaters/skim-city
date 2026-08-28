@@ -6,7 +6,7 @@ export function NotFoundPage() {
     <div className="min-h-dvh grid place-items-center bg-noir-900 spotlight hatch px-5">
       <div className="text-center max-w-md">
         <div className="mb-10 flex justify-center">
-          <Logo size="md" />
+          <Logo size="md" showTagline />
         </div>
         <p className="display text-7xl text-noir-600 mb-4">404</p>
         <h1 className="display text-2xl text-bone mb-3">Nothing here</h1>

@@ -84,7 +84,7 @@ export function ReviewPage() {
     <div className="min-h-dvh bg-noir-900 hatch">
       <header className="border-b border-noir-700 spotlight">
         <div className="mx-auto max-w-2xl px-5 py-8 flex justify-center">
-          <Logo size="md" to={null} />
+          <Logo size="md" to={null} showTagline />
         </div>
       </header>
 
