@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Logo } from '../Logo';
 import { ButtonLink } from '../ui/Button';
@@ -15,7 +15,20 @@ const NAV = [
 
 export function PublicLayout() {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+
+  // The logo rests at double size, hanging below the header rule, and pulls
+  // back into the bar once the page moves so it stops competing with content.
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll(); // a reload can restore a scrolled position before we ever fire
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // The overhang would collide with the open mobile menu, so collapse it too.
+  const compact = scrolled || open;
 
   return (
     <div className="min-h-dvh flex flex-col bg-noir-900">
@@ -26,9 +39,12 @@ export function PublicLayout() {
         Skip to content
       </a>
 
-      <header className="sticky top-0 z-40 bg-noir-900/95 backdrop-blur-sm border-b border-noir-700">
+      <header className="sticky top-0 z-40 bg-chrome/95 backdrop-blur-sm border-b border-noir-700">
         <div className="mx-auto max-w-6xl px-5 h-20 flex items-center justify-between gap-6">
-          <Logo size="sm" />
+          <Logo
+            size={compact ? 'sm' : 'banner'}
+            className={compact ? '' : 'translate-y-[20%]'}
+          />
 
           <nav className="hidden md:flex items-center gap-7" aria-label="Main">
             {NAV.map((item) => (
@@ -68,7 +84,7 @@ export function PublicLayout() {
         </div>
 
         {open && (
-          <nav id="mobile-nav" className="md:hidden border-t border-noir-700 bg-noir-850" aria-label="Main">
+          <nav id="mobile-nav" className="md:hidden border-t border-noir-700 bg-chrome-deep" aria-label="Main">
             <ul className="px-5 py-3">
               {NAV.map((item) => (
                 <li key={item.to}>
@@ -107,10 +123,10 @@ export function PublicLayout() {
 
 function PublicFooter() {
   return (
-    <footer className="border-t border-noir-700 bg-noir-850 hatch">
+    <footer className="border-t border-noir-700 bg-chrome-deep hatch">
       <div className="mx-auto max-w-6xl px-5 py-12 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
         <div className="sm:col-span-2 lg:col-span-1">
-          <Logo size="sm" to={null} />
+          <Logo size="sm" to={null} showTagline />
         </div>
 
         <div>

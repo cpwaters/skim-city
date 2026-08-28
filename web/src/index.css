@@ -24,12 +24,30 @@
 }
 
 @theme {
-  --color-noir-900: #08090b;
-  --color-noir-850: #0c0f13;
-  --color-noir-800: #101318;
-  --color-noir-700: #1a1f27;
-  --color-noir-600: #262d38;
-  --color-noir-500: #3a4350;
+  /*
+   * The noir scale, lifted off pure black.
+   *
+   * Everything on a page sits on 900 and stacks upwards: 850 for alternating
+   * bands, 800 for cards, 700 for borders. The whole scale moves together so
+   * a card is always a step ABOVE the page it sits on — lightening the page
+   * on its own would have sunk every card into it.
+   */
+  --color-noir-900: #11151b;
+  --color-noir-850: #161b22;
+  --color-noir-800: #1c222b;
+  --color-noir-700: #29313c;
+  --color-noir-600: #39424f;
+  --color-noir-500: #4c5665;
+
+  /*
+   * Site chrome, deliberately NOT on the scale above.
+   *
+   * The header and footer keep the near-black they always had, so they read as
+   * frame rather than page. They are now darker than the content between them,
+   * which is what gives the header its edge without needing a heavier rule.
+   */
+  --color-chrome: #08090b;
+  --color-chrome-deep: #0c0f13;
 
   --color-city-500: #6cabdd;
   --color-city-600: #4f8cbb;
@@ -42,7 +60,9 @@
 
   --color-bone: #f2f4f7;
   --color-smoke: #98a1ae;
-  --color-smoke-dim: #6b7480;
+  /* Lifted to clear 4.5:1 on both the page and a card — it was under AA
+     even against the old black, and this is the smallest text on the site. */
+  --color-smoke-dim: #808a98;
 
   --font-display: 'Oswald', 'Haettenschweiler', 'Arial Narrow', sans-serif;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;

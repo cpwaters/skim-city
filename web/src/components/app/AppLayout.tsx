@@ -29,7 +29,7 @@ export function AppLayout() {
 
   return (
     <div className="min-h-dvh bg-noir-900 lg:grid lg:grid-cols-[240px_1fr]">
-      <aside className="hidden lg:flex flex-col border-r border-noir-700 bg-noir-850 sticky top-0 h-dvh">
+      <aside className="hidden lg:flex flex-col border-r border-noir-700 bg-chrome-deep sticky top-0 h-dvh">
         <div className="px-5 py-6 border-b border-noir-700">
           <Logo size="sm" to="/app" />
         </div>
@@ -59,7 +59,7 @@ export function AppLayout() {
       </aside>
 
       <div className="flex flex-col min-w-0">
-        <header className="lg:hidden sticky top-0 z-30 bg-noir-900/95 backdrop-blur-sm border-b border-noir-700 px-4 h-16 flex items-center justify-between">
+        <header className="lg:hidden sticky top-0 z-30 bg-chrome/95 backdrop-blur-sm border-b border-noir-700 px-4 h-16 flex items-center justify-between">
           <Logo size="sm" to="/app" />
           <button
             onClick={() => void signOut()}
@@ -76,7 +76,7 @@ export function AppLayout() {
       </div>
 
       <nav
-        className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-noir-850 border-t border-noir-700 pb-[env(safe-area-inset-bottom)]"
+        className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-chrome-deep border-t border-noir-700 pb-[env(safe-area-inset-bottom)]"
         aria-label="CRM"
       >
         <ul className="grid grid-cols-5">
