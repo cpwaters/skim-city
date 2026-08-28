@@ -1,9 +1,21 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
+
+  // The wordmark is referenced by every layout. A missing file would build
+  // cleanly and ship a page full of broken-image icons, so check it here where
+  // the failure is obvious rather than in production.
+  if (!existsSync(resolve(__dirname, 'public/brand/skim-city-wordmark.png'))) {
+    throw new Error(
+      '\n\nMissing web/public/brand/skim-city-wordmark.png — the Skim City wordmark.\n' +
+        'Save the logo artwork to that path and build again.\n',
+    );
+  }
 
   // A production build with placeholder Firebase config would deploy a site
   // that looks fine and silently fails every booking. Better to stop here than
