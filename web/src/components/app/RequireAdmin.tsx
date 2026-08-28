@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { Spinner } from '../ui/States';
+import { ErrorState, Spinner } from '../ui/States';
 import { Button } from '../ui/Button';
 
 /**
@@ -12,13 +12,30 @@ import { Button } from '../ui/Button';
  * every callable, both of which apply regardless of what the client does.
  */
 export function RequireAdmin({ children }: { children: ReactNode }) {
-  const { user, isAdmin, loading, signOut } = useAuth();
+  const { user, isAdmin, loading, error, retry, signOut } = useAuth();
   const location = useLocation();
 
   if (loading) {
     return (
       <div className="min-h-dvh grid place-items-center bg-noir-900">
         <Spinner label="Checking access" />
+      </div>
+    );
+  }
+
+  // Checked before the redirect below: if auth failed outright there is no
+  // user, and bouncing to the login page would hide the reason why.
+  if (error) {
+    return (
+      <div className="min-h-dvh grid place-items-center bg-noir-900 px-6">
+        <div className="max-w-md">
+          <ErrorState message={error} retry={retry} />
+          <div className="text-center">
+            <Button variant="secondary" onClick={() => void signOut()}>
+              Sign out
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }

@@ -7,7 +7,7 @@ import { Notice, Spinner } from '../../components/ui/States';
 import { useAuth } from '../../hooks/useAuth';
 
 export function LoginPage() {
-  const { user, isAdmin, loading, signIn, resetPassword } = useAuth();
+  const { user, loading, signIn, resetPassword } = useAuth();
   const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,7 +23,10 @@ export function LoginPage() {
     );
   }
 
-  if (user && isAdmin) {
+  // Redirect on any signed-in user, not just an admin. RequireAdmin owns the
+  // "signed in but no access" explanation; gating this on isAdmin left someone
+  // without the claim staring at a form that silently did nothing.
+  if (user) {
     const from = (location.state as { from?: string } | null)?.from ?? '/app';
     return <Navigate to={from} replace />;
   }
@@ -68,7 +71,7 @@ export function LoginPage() {
     <div className="min-h-dvh grid place-items-center bg-noir-900 spotlight hatch px-5 py-12">
       <div className="w-full max-w-sm">
         <div className="mb-10 flex justify-center">
-          <Logo size="md" to="/" />
+          <Logo size="md" to="/" showTagline />
         </div>
 
         <div className="bg-noir-800 border border-noir-700 rounded-[3px] p-7">
