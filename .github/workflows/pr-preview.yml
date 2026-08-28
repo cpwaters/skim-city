@@ -67,7 +67,7 @@ jobs:
         run: |
           # Channels expire on their own, so a busy month doesn't leave dozens
           # of stale previews behind.
-          OUTPUT=$(npx --yes firebase-tools@latest hosting:channel:deploy \
+          OUTPUT=$(npx --yes firebase-tools@15.28.2 hosting:channel:deploy \
             "pr-${{ github.event.pull_request.number }}" \
             --project "$FIREBASE_PROJECT" \
             --expires 7d \

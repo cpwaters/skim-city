@@ -65,10 +65,19 @@ jobs:
         # placeholders — see the guard in web/vite.config.ts.
         run: npm --prefix web run build
 
+      - name: Set up Java for the Firestore emulator
+        # The Firestore emulator is a Java process, and firebase-tools 15 needs
+        # a JDK 21 or newer runtime. The runner's default JDK is older, so it
+        # has to be set explicitly or emulators:exec refuses to start.
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
       - name: Run security rules tests
         # emulators:exec boots Firestore, runs the suite, and tears it down,
         # so the tests exercise the real rules file rather than a mock.
-        run: npx --yes firebase-tools@latest emulators:exec --only firestore --project skimcity-bac3b "npm test"
+        run: npx --yes firebase-tools@15.28.2 emulators:exec --only firestore --project skimcity-bac3b "npm test"
 
       - name: Upload build output
         uses: actions/upload-artifact@v4

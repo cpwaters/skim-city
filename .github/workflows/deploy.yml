@@ -54,12 +54,21 @@ jobs:
       - name: Sync shared domain types
         run: npm run sync:types
 
+      - name: Set up Java for the Firestore emulator
+        # The Firestore emulator is a Java process, and firebase-tools 15 needs
+        # a JDK 21 or newer runtime. The runner's default JDK is older, so it
+        # has to be set explicitly or emulators:exec refuses to start.
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
       - name: Verify before shipping
         # The same checks CI runs. A push straight to main must not skip them.
         run: |
           npm --prefix web run lint
           npm --prefix functions run build
-          npx --yes firebase-tools@latest emulators:exec --only firestore --project "$FIREBASE_PROJECT" "npm test"
+          npx --yes firebase-tools@15.28.2 emulators:exec --only firestore --project "$FIREBASE_PROJECT" "npm test"
 
       - name: Build web app
         run: npm --prefix web run build
@@ -77,14 +86,14 @@ jobs:
         # Rules go out before the site: if a release tightens a rule, it should
         # be live before the code that depends on it.
         run: |
-          npx --yes firebase-tools@latest deploy \
+          npx --yes firebase-tools@15.28.2 deploy \
             --only firestore:rules,firestore:indexes,storage \
             --project "$FIREBASE_PROJECT" \
             --non-interactive
 
       - name: Deploy hosting
         run: |
-          npx --yes firebase-tools@latest deploy \
+          npx --yes firebase-tools@15.28.2 deploy \
             --only hosting \
             --project "$FIREBASE_PROJECT" \
             --non-interactive \
@@ -147,7 +156,7 @@ jobs:
         # Manager, set once with `firebase functions:secrets:set NAME`, and the
         # deployed function is granted access to them by name.
         run: |
-          npx --yes firebase-tools@latest deploy \
+          npx --yes firebase-tools@15.28.2 deploy \
             --only functions \
             --project "$FIREBASE_PROJECT" \
             --non-interactive \
