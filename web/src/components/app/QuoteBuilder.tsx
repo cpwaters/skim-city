@@ -2,17 +2,10 @@ import { useState } from 'react';
 import { Button } from '../ui/Button';
 import { Input, Textarea } from '../ui/Field';
 import { Notice } from '../ui/States';
+import { QuoteLines } from './QuoteLines';
+import { BLANK_LINE, lineItemsTotal, toLineItems, type LineDraft } from '../../lib/quotes';
 import { createQuote, sendQuote } from '../../lib/callables';
 import { money, penceToPounds, poundsToPence } from '../../lib/format';
-import type { LineItem } from '../../types/domain';
-
-interface Draft {
-  description: string;
-  quantity: string;
-  unitPrice: string;
-}
-
-const BLANK_ROW: Draft = { description: '', quantity: '1', unitPrice: '' };
 
 /**
  * Builds and sends a quote for a job.
@@ -30,32 +23,18 @@ export function QuoteBuilder({
   depositPercent: number;
   onDone: () => void;
 }) {
-  const [rows, setRows] = useState<Draft[]>([{ ...BLANK_ROW }]);
+  const [rows, setRows] = useState<LineDraft[]>([{ ...BLANK_LINE }]);
   const [notes, setNotes] = useState('');
   const [depositOverride, setDepositOverride] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<string | null>(null);
 
-  const lineItems: LineItem[] = rows
-    .filter((row) => row.description.trim() && row.unitPrice.trim())
-    .map((row) => ({
-      description: row.description.trim(),
-      quantity: Number(row.quantity) || 1,
-      unitPricePence: poundsToPence(row.unitPrice),
-    }));
-
-  const total = lineItems.reduce(
-    (sum, item) => sum + Math.round(item.quantity * item.unitPricePence),
-    0,
-  );
+  const lineItems = toLineItems(rows);
+  const total = lineItemsTotal(lineItems);
   const deposit = depositOverride.trim()
     ? poundsToPence(depositOverride)
     : Math.round((total * depositPercent) / 100);
-
-  function updateRow(index: number, patch: Partial<Draft>) {
-    setRows((current) => current.map((row, position) => (position === index ? { ...row, ...patch } : row)));
-  }
 
   async function createAndSend() {
     if (lineItems.length === 0) {
@@ -96,53 +75,7 @@ export function QuoteBuilder({
     <div className="space-y-4">
       {error && <Notice tone="error">{error}</Notice>}
 
-      <div className="space-y-3">
-        {rows.map((row, index) => (
-          <div key={index} className="grid grid-cols-[1fr_4rem_6rem_2rem] gap-2 items-end">
-            <Input
-              label={index === 0 ? 'Description' : ''}
-              value={row.description}
-              placeholder="Skim ceiling and two walls"
-              onChange={(event) => updateRow(index, { description: event.target.value })}
-            />
-            <Input
-              label={index === 0 ? 'Qty' : ''}
-              type="number"
-              min="0.5"
-              step="0.5"
-              value={row.quantity}
-              onChange={(event) => updateRow(index, { quantity: event.target.value })}
-            />
-            <Input
-              label={index === 0 ? 'Price £' : ''}
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              value={row.unitPrice}
-              placeholder="250.00"
-              onChange={(event) => updateRow(index, { unitPrice: event.target.value })}
-            />
-            <button
-              type="button"
-              onClick={() => setRows((current) => current.filter((_, position) => position !== index))}
-              disabled={rows.length === 1}
-              aria-label={`Remove line ${index + 1}`}
-              className="h-11 text-smoke hover:text-maroon-400 disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer"
-            >
-              ×
-            </button>
-          </div>
-        ))}
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setRows((current) => [...current, { ...BLANK_ROW }])}
-        className="text-xs font-display uppercase tracking-[0.14em] text-city-500 hover:text-city-600 cursor-pointer"
-      >
-        + Add line
-      </button>
+      <QuoteLines rows={rows} onChange={setRows} disabled={busy} />
 
       <Textarea
         label="Notes for the customer"

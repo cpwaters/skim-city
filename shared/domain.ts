@@ -72,8 +72,26 @@ export interface Job {
   customerId: string;
   type: JobType;
   status: JobStatus;
-  /** ISO date, `YYYY-MM-DD`, Europe/London. */
+  /**
+   * First working day of the job. ISO date, `YYYY-MM-DD`, Europe/London.
+   * Stays the sort and display key even for a job spanning several days.
+   */
   date: string;
+  /**
+   * How many working days the job spans. 1 for repairs and single full days.
+   *
+   * Optional because jobs created before multi-day support have neither this
+   * nor `dates`; treat a missing value as 1.
+   */
+  days?: number;
+  /**
+   * Every working date the job occupies, ascending, starting with `date`.
+   *
+   * This is what the diary queries (`array-contains`), so a job holds all of
+   * its days rather than just the first. Missing on pre-multi-day jobs, where
+   * `date` alone is the whole story.
+   */
+  dates?: string[];
   slot: JobSlot;
   address: Address | null;
   description: string;
@@ -96,6 +114,7 @@ export interface Quote {
   id: string;
   jobId: string;
   customerId: string;
+  /** Sequential, human-facing: `Q-0001`. Allocated transactionally on save. */
   reference: string;
   lineItems: LineItem[];
   subtotalPence: number;

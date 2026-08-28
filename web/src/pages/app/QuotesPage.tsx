@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { orderBy } from 'firebase/firestore';
 import { PageTitle } from '../../components/app/PageTitle';
+import { ButtonLink } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { QuoteStatusBadge } from '../../components/ui/Badge';
 import { EmptyState, Spinner } from '../../components/ui/States';
@@ -21,7 +22,11 @@ export function QuotesPage() {
 
   return (
     <>
-      <PageTitle title="Quotes" subtitle={`${money(outstanding)} out with customers and still live`} />
+      <PageTitle
+        title="Quotes"
+        subtitle={`${money(outstanding)} out with customers and still live`}
+        action={<ButtonLink to="/app/quotes/new">New quote</ButtonLink>}
+      />
 
       <Card>
         {loading ? (
@@ -29,7 +34,7 @@ export function QuotesPage() {
         ) : quotes.length === 0 ? (
           <EmptyState
             title="No quotes yet"
-            message="Build a quote from any job and it turns up here."
+            message="Start one from here when you are at the job, or build one from an existing job."
           />
         ) : (
           <ul className="divide-y divide-noir-700">

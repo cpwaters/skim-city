@@ -145,3 +145,22 @@ export function initials(name: string): string {
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('');
 }
+
+/**
+ * Preview of the working dates a job would occupy, starting at `start`.
+ *
+ * Mirrors workingDatesFrom in functions/src/lib/dates.ts. The server is
+ * authoritative — this exists only so the form can say "runs to Thursday"
+ * before anything is saved.
+ */
+export function workingDatesFrom(start: string, count: number, workingDays: number[]): string[] {
+  const dates = [start];
+  let cursor = start;
+
+  for (let step = 0; dates.length < count && step < count * 14; step += 1) {
+    cursor = addDays(cursor, 1);
+    if (workingDays.includes(dayOfWeek(cursor))) dates.push(cursor);
+  }
+
+  return dates;
+}

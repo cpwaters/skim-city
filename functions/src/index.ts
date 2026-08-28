@@ -6,10 +6,10 @@
  */
 
 export { getAvailability, requestBooking, blockDay, onJobWrite } from './booking/functions';
-export { createQuote, sendQuote, getQuote, acceptQuote, declineQuote } from './quotes/functions';
+export { peekQuoteNumber, createQuote, sendQuote, getQuote, acceptQuote, declineQuote } from './quotes/functions';
 export { createInvoice, sendInvoice, voidInvoice } from './payments/invoices';
 export { squareWebhook, stripeWebhook } from './payments/webhooks';
-export { markJobComplete, updateJobStatus } from './jobs/functions';
+export { createJob, markJobComplete, updateJobStatus } from './jobs/functions';
 export { getGallery, deleteGalleryItem } from './gallery/functions';
 export { requestReview, getReviewRequest, submitReview, getReviews } from './reviews/functions';
 export { dailyDigest, sweepOverdueInvoices } from './scheduled/daily';

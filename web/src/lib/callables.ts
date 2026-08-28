@@ -1,6 +1,15 @@
 import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 import { functions } from './firebase';
-import type { Availability, BookingRequestPayload, JobSlot, JobStatus, LineItem, Processor } from '../types/domain';
+import type {
+  Address,
+  Availability,
+  BookingRequestPayload,
+  JobSlot,
+  JobType,
+  JobStatus,
+  LineItem,
+  Processor,
+} from '../types/domain';
 
 /**
  * Typed wrappers around every Cloud Function.
@@ -36,6 +45,24 @@ export const blockDay = callable<
   { date: string; blocked: boolean; note?: string },
   { date: string; blocked: boolean }
 >('blockDay');
+
+export const createJob = callable<
+  {
+    name: string;
+    phone: string;
+    email: string;
+    type: JobType;
+    date: string;
+    slot: JobSlot;
+    address: Address;
+    description: string;
+    days?: number;
+    source?: 'website' | 'phone' | 'referral' | 'repeat' | 'other';
+  },
+  { jobId: string; customerId: string }
+>('createJob');
+
+export const peekQuoteNumber = callable<Record<string, never>, { number: string }>('peekQuoteNumber');
 
 export const createQuote = callable<
   { jobId: string; lineItems: LineItem[]; notes?: string; depositPence?: number; validDays?: number },

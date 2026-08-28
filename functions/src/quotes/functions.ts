@@ -17,9 +17,9 @@ import { getSettings } from '../lib/settings';
 import { assertAdmin } from '../lib/auth';
 import { assertAppCheck } from '../lib/appCheck';
 import { lineItemSchema, parseOrThrow } from '../lib/validation';
-import { generateReference, generateToken } from '../lib/tokens';
+import { generateToken } from '../lib/tokens';
 import { adapterFor } from '../payments/adapters';
-import { nextInvoiceNumber } from '../lib/counters';
+import { nextInvoiceNumber, nextQuoteNumber, peekNextQuoteNumber } from '../lib/counters';
 import { sendEmail } from '../messaging/email';
 import { notifyTelegram } from '../messaging/telegram';
 import { escapeHtml, quoteEmail, slotLabel } from '../messaging/templates';
@@ -33,6 +33,18 @@ const QUOTE_SECRETS = [
   SQUARE_LOCATION_ID,
   STRIPE_SECRET_KEY,
 ];
+
+/**
+ * Admin: the number the next quote will get.
+ *
+ * The form shows this while it is being filled in. The counter is not consumed
+ * here — see peekNextQuoteNumber — so opening the form and walking away does
+ * not burn a number.
+ */
+export const peekQuoteNumber = onCall({ region: REGION }, async (request) => {
+  assertAdmin(request);
+  return { number: await peekNextQuoteNumber() };
+});
 
 /** Admin: price up an enquiry. */
 export const createQuote = onCall({ region: REGION }, async (request) => {
@@ -68,7 +80,7 @@ export const createQuote = onCall({ region: REGION }, async (request) => {
   const quote: Omit<Quote, 'id'> = {
     jobId: job.id,
     customerId: job.customerId,
-    reference: generateReference('Q'),
+    reference: await nextQuoteNumber(),
     lineItems: input.lineItems,
     ...totals,
     depositPence,

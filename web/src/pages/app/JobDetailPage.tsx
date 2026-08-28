@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { where } from 'firebase/firestore';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { doc, updateDoc, where } from 'firebase/firestore';
 import { Button, ButtonLink } from '../../components/ui/Button';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { InvoiceStatusBadge, JobStatusBadge, QuoteStatusBadge } from '../../components/ui/Badge';
 import { EmptyState, ErrorState, Notice, Spinner } from '../../components/ui/States';
 import { QuoteBuilder } from '../../components/app/QuoteBuilder';
+import { JobPhotos } from '../../components/app/JobPhotos';
 import { useCollection, useDocument } from '../../hooks/useFirestore';
+import { db } from '../../lib/firebase-crm';
+import { uploadPhotoDrafts, releaseDraft, type PhotoDraft } from '../../lib/photos';
 import { createInvoice, markJobComplete, requestReview, sendInvoice, updateJobStatus } from '../../lib/callables';
 import {
   formatPhone,
@@ -24,9 +27,48 @@ import type { BusinessSettings, Customer, Invoice, Job, Payment, Processor, Quot
  */
 export function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>();
+  const location = useLocation();
+  // Set by the on-site quote form when it redirects here after saving.
+  const flash = (location.state as { flash?: string } | null)?.flash ?? null;
   const { data: job, loading, error } = useDocument<Job>('jobs', jobId);
   const { data: customer } = useDocument<Customer>('customers', job?.customerId);
   const { data: settings } = useDocument<BusinessSettings>('settings', 'business');
+
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  /**
+   * On an existing job a photo can go straight up, so drafts are uploaded the
+   * moment they are picked rather than waiting for a save that never comes.
+   */
+  async function attachPhotos(drafts: PhotoDraft[]) {
+    if (!jobId || drafts.length === 0) return;
+
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      const urls = await uploadPhotoDrafts(jobId, drafts);
+      await updateDoc(doc(db, 'jobs', jobId), {
+        photos: [...(job?.photos ?? []), ...urls],
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (cause) {
+      setPhotoError(cause instanceof Error ? cause.message : 'Those photos would not upload.');
+    } finally {
+      drafts.forEach(releaseDraft);
+      setPhotoBusy(false);
+    }
+  }
+
+  async function removePhoto(url: string) {
+    if (!jobId) return;
+    // The file is left in Storage on purpose: it is the record of what was
+    // quoted, and an admin-only bucket path costs nothing to keep.
+    await updateDoc(doc(db, 'jobs', jobId), {
+      photos: (job?.photos ?? []).filter((item) => item !== url),
+      updatedAt: new Date().toISOString(),
+    });
+  }
 
   const { data: quotes } = useCollection<Quote>(
     'quotes',
@@ -98,6 +140,12 @@ export function JobDetailPage() {
         ← All jobs
       </Link>
 
+      {flash && (
+        <div className="mt-3">
+          <Notice tone="success">{flash}</Notice>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-start justify-between gap-4 mt-3 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
@@ -107,6 +155,14 @@ export function JobDetailPage() {
           <p className="text-sm text-smoke">
             {longDate(job.date)} · {slotLabel(job.slot)} ·{' '}
             {job.type === 'full_day' ? 'Full day' : 'Repair'}
+            {(job.days ?? 1) > 1 && (
+              <>
+                {' · '}
+                <span className="text-city-500">
+                  {job.days} days, to {shortDate(job.dates?.[job.dates.length - 1] ?? job.date)}
+                </span>
+              </>
+            )}
           </p>
         </div>
 
@@ -171,6 +227,21 @@ export function JobDetailPage() {
                   <p className="text-sm text-smoke">{job.internalNotes}</p>
                 </div>
               )}
+            </div>
+          </Card>
+
+          <Card>
+            <CardHeader title="Photos" />
+            <div className="p-4 space-y-3">
+              {photoError && <Notice tone="error">{photoError}</Notice>}
+              <JobPhotos
+                drafts={[]}
+                onDraftsChange={(drafts) => void attachPhotos(drafts)}
+                existing={job.photos ?? []}
+                onRemoveExisting={(url) => void removePhoto(url)}
+                disabled={photoBusy}
+              />
+              {photoBusy && <p className="text-xs text-smoke-dim">Uploading…</p>}
             </div>
           </Card>
 

@@ -23,6 +23,7 @@ const CustomerDetailPage = lazy(() =>
   import('./pages/app/CustomerDetailPage').then((m) => ({ default: m.CustomerDetailPage })),
 );
 const QuotesPage = lazy(() => import('./pages/app/QuotesPage').then((m) => ({ default: m.QuotesPage })));
+const NewQuotePage = lazy(() => import('./pages/app/NewQuotePage').then((m) => ({ default: m.NewQuotePage })));
 const InvoicesPage = lazy(() => import('./pages/app/InvoicesPage').then((m) => ({ default: m.InvoicesPage })));
 const PaymentsPage = lazy(() => import('./pages/app/PaymentsPage').then((m) => ({ default: m.PaymentsPage })));
 const ReviewsManagerPage = lazy(() =>
@@ -54,6 +55,7 @@ export function AdminApp() {
             <Route path="customers" element={<CustomersPage />} />
             <Route path="customers/:customerId" element={<CustomerDetailPage />} />
             <Route path="quotes" element={<QuotesPage />} />
+            <Route path="quotes/new" element={<NewQuotePage />} />
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="payments" element={<PaymentsPage />} />
             <Route path="gallery" element={<GalleryManagerPage />} />

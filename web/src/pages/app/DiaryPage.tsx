@@ -46,7 +46,11 @@ export function DiaryPage() {
   const byDate = useMemo(() => {
     const map = new Map<string, Job[]>();
     for (const job of activeJobs) {
-      map.set(job.date, [...(map.get(job.date) ?? []), job]);
+      // A multi-day job appears on every day it holds. `date` alone is the
+      // fallback for jobs written before spans existed.
+      for (const date of job.dates ?? [job.date]) {
+        map.set(date, [...(map.get(date) ?? []), job]);
+      }
     }
     return map;
   }, [activeJobs]);

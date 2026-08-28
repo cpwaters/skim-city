@@ -148,6 +148,10 @@ export const requestBooking = onCall(
         type: payload.type,
         status: 'enquiry',
         date: payload.date,
+        // Online bookings are always a single day, but they record the span
+        // fields anyway so the diary finds every job the same way.
+        days: 1,
+        dates: [payload.date],
         slot: payload.slot,
         address: payload.address,
         description: payload.description,
@@ -224,9 +228,14 @@ export const onJobWrite = onDocumentWritten(
     const before = event.data?.before.data() as Job | undefined;
     const after = event.data?.after.data() as Job | undefined;
 
+    // `dates` covers a multi-day job; `date` is the fallback for jobs written
+    // before spans existed. A rescheduled or shortened job must free every day
+    // it used to hold, so both sides are unioned.
     const dates = new Set<string>();
-    if (before?.date) dates.add(before.date);
-    if (after?.date) dates.add(after.date);
+    for (const job of [before, after]) {
+      if (!job) continue;
+      for (const date of job.dates ?? (job.date ? [job.date] : [])) dates.add(date);
+    }
 
     // A rescheduled job frees its old date and takes the new one.
     await Promise.all([...dates].map((date) => recomputeDay(date)));

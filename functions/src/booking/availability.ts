@@ -57,29 +57,42 @@ function slotField(slot: JobSlot): 'fullDayJobId' | 'amJobId' | 'pmJobId' {
 }
 
 /**
- * Claims a slot inside a caller-supplied transaction.
+ * Claims a slot across one or more days inside a caller-supplied transaction.
  *
- * This is what makes concurrent bookings safe: two customers submitting the
- * same slot at the same moment both read `dayBookings/{date}`, and Firestore
- * aborts and retries the loser, which then sees the slot taken and is rejected.
- * The onJobWrite trigger alone could not do this — triggers fire *after* the
- * write has already landed.
+ * Every day is checked before any is written, so a three-day job that runs
+ * into a booked Wednesday fails cleanly rather than half-claiming the week.
+ * The caller must have read all the DayBookings already — Firestore requires
+ * every read in a transaction to happen before the first write.
  */
+export function claimDaysInTransaction(
+  tx: Transaction,
+  days: DayBooking[],
+  slot: JobSlot,
+  jobId: string,
+): void {
+  const clash = days.find((day) => !isSlotFree(day, slot));
+  if (clash) {
+    throw new HttpsError(
+      'failed-precondition',
+      days.length === 1
+        ? 'That slot has just been taken. Please choose another date.'
+        : `The job runs over ${days.length} days and ${clash.date} is not free. Pick another start date.`,
+    );
+  }
+
+  const timestamp = nowIso();
+  for (const day of days) {
+    writeDay(tx, { ...day, [slotField(slot)]: jobId, updatedAt: timestamp });
+  }
+}
+
 export function claimSlotInTransaction(
   tx: Transaction,
   day: DayBooking,
   slot: JobSlot,
   jobId: string,
 ): void {
-  if (!isSlotFree(day, slot)) {
-    throw new HttpsError(
-      'failed-precondition',
-      'That slot has just been taken. Please choose another date.',
-    );
-  }
-
-  const updated: DayBooking = { ...day, [slotField(slot)]: jobId, updatedAt: nowIso() };
-  writeDay(tx, updated);
+  claimDaysInTransaction(tx, [day], slot, jobId);
 }
 
 function writeDay(tx: Transaction, day: DayBooking): void {
@@ -102,20 +115,27 @@ export async function readDayBooking(tx: Transaction, date: string): Promise<Day
  */
 export async function recomputeDay(date: string): Promise<void> {
   await db.runTransaction(async (tx) => {
-    const jobsSnap = await tx.get(
-      db
-        .collection(COLLECTIONS.jobs)
-        .where('date', '==', date)
-        .where('status', 'in', ACTIVE_JOB_STATUSES),
-    );
+    // Two queries, unioned. `dates` holds every day a job occupies and is what
+    // multi-day jobs are found by; the `date` query keeps jobs written before
+    // multi-day support from silently losing their slot. Filtering status in
+    // memory keeps this to a single-field array index — no composite needed.
+    const [spanning, legacy] = await Promise.all([
+      tx.get(db.collection(COLLECTIONS.jobs).where('dates', 'array-contains', date)),
+      tx.get(db.collection(COLLECTIONS.jobs).where('date', '==', date)),
+    ]);
 
     const existing = await readDayBooking(tx, date);
     const rebuilt = emptyDayBooking(date);
     rebuilt.blocked = existing.blocked;
     if (existing.note) rebuilt.note = existing.note;
 
-    for (const doc of jobsSnap.docs) {
+    const seen = new Set<string>();
+    for (const doc of [...spanning.docs, ...legacy.docs]) {
+      if (seen.has(doc.id)) continue;
+      seen.add(doc.id);
+
       const job = doc.data() as Job;
+      if (!ACTIVE_JOB_STATUSES.includes(job.status)) continue;
       rebuilt[slotField(job.slot)] = doc.id;
     }
 

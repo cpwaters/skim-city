@@ -53,3 +53,24 @@ export function formatLongDate(isoDate: string): string {
 export function nowIso(): string {
   return new Date().toISOString();
 }
+
+/**
+ * The working dates a job occupies, starting at `start`.
+ *
+ * `start` is always included even if it is not normally a working day — an
+ * admin booking his own Saturday has made a deliberate choice, and the public
+ * form has already rejected non-working days by the time it gets here. Only
+ * the days AFTER the first skip weekends and days off.
+ */
+export function workingDatesFrom(start: string, count: number, workingDays: number[]): string[] {
+  const dates = [start];
+  let cursor = start;
+
+  // Guard the walk: an empty or nonsensical workingDays list must not spin.
+  for (let step = 0; dates.length < count && step < count * 14; step += 1) {
+    cursor = addDaysIso(cursor, 1);
+    if (workingDays.includes(dayOfWeek(cursor))) dates.push(cursor);
+  }
+
+  return dates;
+}

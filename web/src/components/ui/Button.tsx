@@ -108,6 +108,7 @@ export function FileButton({
   onFiles,
   multiple,
   disabled,
+  capture,
   variant = 'secondary',
   size = 'sm',
   full,
@@ -116,6 +117,8 @@ export function FileButton({
   onFiles: (files: FileList | null) => void;
   multiple?: boolean;
   disabled?: boolean;
+  /** Opens the rear camera directly instead of the photo library, on mobile. */
+  capture?: boolean;
   variant?: Variant;
   size?: Size;
   full?: boolean;
@@ -126,6 +129,7 @@ export function FileButton({
       <input
         type="file"
         accept="image/*"
+        {...(capture ? { capture: 'environment' as const } : {})}
         multiple={multiple}
         disabled={disabled}
         className="sr-only"
