@@ -1,0 +1,29 @@
+{
+  "name": "skim-city",
+  "version": "1.0.0",
+  "description": "SKIM CITY — plastering CRM, booking and payments. Taking the rough to the smooth.",
+  "private": true,
+  "scripts": {
+    "sync:types": "bash scripts/sync-types.sh",
+    "install:all": "npm --prefix web install && npm --prefix functions install",
+    "dev": "npm --prefix web run dev",
+    "build": "npm run sync:types && npm --prefix web run build && npm --prefix functions run build",
+    "build:web": "npm --prefix web run build",
+    "build:functions": "npm --prefix functions run build",
+    "emulators": "firebase emulators:start",
+    "seed": "node scripts/seed.mjs",
+    "grant-admin": "node scripts/grant-admin.mjs",
+    "deploy": "npm run build && firebase deploy",
+    "deploy:hosting": "npm run build:web && firebase deploy --only hosting",
+    "deploy:functions": "firebase deploy --only functions",
+    "deploy:rules": "firebase deploy --only firestore:rules,storage",
+    "test": "node --test \"tests/**/*.test.mjs\"",
+    "test:rules": "node --test tests/rules.test.mjs",
+    "build:preview": "npm run sync:types && npm --prefix web run build:preview && node scripts/build-preview.mjs"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase": "^12.18.0",
+    "firebase-admin": "^14.3.0"
+  }
+}

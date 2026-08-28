@@ -1,0 +1,124 @@
+name: PR preview
+
+# Deploys every pull request to its own Firebase Hosting preview channel and
+# comments the URL, so a change can be looked at on a real device before it is
+# merged. Preview channels work on the free Spark plan.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+  VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+  VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+  VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+  VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+  VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+  FIREBASE_PROJECT: skimcity-bac3b
+
+jobs:
+  preview:
+    name: Deploy preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # A PR from a fork gets no access to secrets, so the deploy could only fail.
+    # Skip rather than showing a red cross for something that is working as
+    # intended.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm --prefix web ci
+
+      - name: Sync shared domain types
+        run: npm run sync:types
+
+      - name: Build web app
+        run: npm --prefix web run build
+
+      - name: Authenticate to Firebase
+        run: |
+          install -m 600 /dev/null "$RUNNER_TEMP/gcp-key.json"
+          printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/gcp-key.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/gcp-key.json" >> "$GITHUB_ENV"
+
+      - name: Deploy to preview channel
+        id: preview
+        run: |
+          # Channels expire on their own, so a busy month doesn't leave dozens
+          # of stale previews behind.
+          OUTPUT=$(npx --yes firebase-tools@15.28.2 hosting:channel:deploy \
+            "pr-${{ github.event.pull_request.number }}" \
+            --project "$FIREBASE_PROJECT" \
+            --expires 7d \
+            --json)
+          echo "$OUTPUT"
+          URL=$(echo "$OUTPUT" | node -e "
+            let raw='';
+            process.stdin.on('data', c => raw += c);
+            process.stdin.on('end', () => {
+              try {
+                const parsed = JSON.parse(raw);
+                const site = Object.values(parsed.result ?? {})[0] ?? {};
+                console.log(site.url ?? '');
+              } catch { console.log(''); }
+            });
+          ")
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Remove credentials
+        if: always()
+        run: rm -f "$RUNNER_TEMP/gcp-key.json"
+
+      - name: Comment the preview URL
+        if: steps.preview.outputs.url != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = '${{ steps.preview.outputs.url }}';
+            const marker = '<!-- skim-city-preview -->';
+            const body = [
+              marker,
+              '### Preview ready',
+              '',
+              `**${url}**`,
+              '',
+              `Built from \`${context.sha.slice(0, 7)}\`. Expires in 7 days.`,
+              '',
+              'The preview points at the live Firestore and Functions, so booking,',
+              'quotes and reviews behave as they would in production. Anything you',
+              'create through it is real data.',
+            ].join('\n');
+
+            // Update the existing comment rather than adding one per push.
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find((c) => c.body?.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+            }

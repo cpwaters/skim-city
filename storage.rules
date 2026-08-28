@@ -1,0 +1,43 @@
+rules_version = '2';
+
+// SKIM CITY — Cloud Storage rules
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    // Gallery images shown on the marketing site.
+    //
+    // create/update and delete are separated deliberately: on a delete there is
+    // no `request.resource`, so a single `write` rule that inspects
+    // contentType/size would reject every deletion.
+    match /public/{allPaths=**} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isImage() && request.resource.size < 10 * 1024 * 1024;
+      allow delete: if isAdmin();
+    }
+
+    // Photos customers attach to a booking request. Write-only from the public
+    // form (nobody can list or read them back), admin-readable in the CRM.
+    match /booking-uploads/{allPaths=**} {
+      allow read: if isAdmin();
+      allow create: if isImage() && request.resource.size < 10 * 1024 * 1024;
+      allow update, delete: if isAdmin();
+    }
+
+    // Job photos and generated documents.
+    match /jobs/{allPaths=**} {
+      allow read, write: if isAdmin();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
