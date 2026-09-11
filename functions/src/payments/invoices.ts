@@ -3,8 +3,6 @@ import { z } from 'zod';
 import {
   REGION,
   RESEND_API_KEY,
-  SQUARE_ACCESS_TOKEN,
-  SQUARE_LOCATION_ID,
   STRIPE_SECRET_KEY,
   TELEGRAM_BOT_TOKEN,
   TELEGRAM_CHAT_ID,
@@ -22,8 +20,6 @@ import { invoiceEmail } from '../messaging/templates';
 import type { Customer, Invoice, Job, LineItem, Quote } from '../domain';
 
 const PAYMENT_SECRETS = [
-  SQUARE_ACCESS_TOKEN,
-  SQUARE_LOCATION_ID,
   STRIPE_SECRET_KEY,
   RESEND_API_KEY,
   TELEGRAM_BOT_TOKEN,
@@ -112,7 +108,7 @@ async function buildLineItems(
   };
 }
 
-/** Admin: raise an invoice against a job, on Square or Stripe. */
+/** Admin: raise an invoice against a job. */
 export const createInvoice = onCall({ region: REGION, secrets: PAYMENT_SECRETS }, async (request) => {
   assertAdmin(request);
 
@@ -120,7 +116,6 @@ export const createInvoice = onCall({ region: REGION, secrets: PAYMENT_SECRETS }
     z.object({
       jobId: z.string().min(1),
       kind: z.enum(['deposit', 'balance', 'full']),
-      processor: z.enum(['square', 'stripe']),
       lineItems: z.array(lineItemSchema).max(50).optional(),
       dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       memo: z.string().trim().max(500).optional(),
@@ -152,7 +147,7 @@ export const createInvoice = onCall({ region: REGION, secrets: PAYMENT_SECRETS }
     ...totals,
     amountPaidPence: 0,
     status: 'draft',
-    processor: input.processor,
+    processor: 'stripe',
     processorInvoiceId: null,
     paymentUrl: null,
     dueDate,
@@ -165,7 +160,7 @@ export const createInvoice = onCall({ region: REGION, secrets: PAYMENT_SECRETS }
   await invoiceRef.set(invoice);
 
   try {
-    const result = await adapterFor(input.processor).createInvoice({
+    const result = await adapterFor('stripe').createInvoice({
       invoiceNumber: number,
       customer: { name: customer.name, email: customer.email, phone: customer.phone },
       lineItems,
@@ -191,7 +186,7 @@ export const createInvoice = onCall({ region: REGION, secrets: PAYMENT_SECRETS }
     console.error('Processor invoice creation failed', error);
     throw new HttpsError(
       'internal',
-      `Could not create the invoice with ${input.processor}. The draft has been saved as ${number}.`,
+      `Could not create the invoice with Stripe. The draft has been saved as ${number}.`,
     );
   }
 });

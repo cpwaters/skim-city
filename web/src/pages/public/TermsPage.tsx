@@ -56,7 +56,7 @@ export function TermsPage() {
         <h2>5. Payment</h2>
         <p>
           The balance is due on completion, within 14 days of the invoice date unless agreed
-          otherwise. We accept card payments through Square and Stripe. We reserve the right
+          otherwise. We accept card payments through Stripe. We reserve the right
           to charge statutory interest on invoices that go past their due date under the Late
           Payment of Commercial Debts (Interest) Act 1998 where it applies.
         </p>

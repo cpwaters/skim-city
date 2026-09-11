@@ -6,14 +6,13 @@ import { ErrorState, Notice, Spinner } from '../../components/ui/States';
 import { acceptQuote, declineQuote, getQuote, type PublicQuote } from '../../lib/callables';
 import { BUSINESS } from '../../lib/business';
 import { formatPhone, longDate, money, slotLabel } from '../../lib/format';
-import type { Processor } from '../../types/domain';
 
 /**
  * The public quote page. No sign-in — the unguessable token in the URL is what
  * grants access, and the server only returns the fields rendered here.
  *
  * Accepting does not take payment: it raises a deposit invoice and hands the
- * customer off to Square's or Stripe's hosted page, so no card details ever
+ * customer off to Stripe's hosted page, so no card details ever
  * reach this application.
  */
 export function QuotePage() {
@@ -24,7 +23,6 @@ export function QuotePage() {
   const [working, setWorking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [declined, setDeclined] = useState(false);
-  const [processor, setProcessor] = useState<Processor>('square');
 
   useEffect(() => {
     let cancelled = false;
@@ -52,7 +50,7 @@ export function QuotePage() {
     setActionError(null);
 
     try {
-      const result = await acceptQuote({ token, processor });
+      const result = await acceptQuote({ token });
       if (result.paymentUrl) {
         // Hand off to the processor's hosted payment page.
         window.location.href = result.paymentUrl;
@@ -189,31 +187,10 @@ export function QuotePage() {
                       </p>
                     </div>
 
-                    <fieldset className="mb-6">
-                      <legend className="eyebrow mb-3">Pay the deposit with</legend>
-                      <div className="grid grid-cols-2 gap-3">
-                        {(['square', 'stripe'] as const).map((option) => (
-                          <button
-                            key={option}
-                            type="button"
-                            onClick={() => setProcessor(option)}
-                            aria-pressed={processor === option}
-                            className={[
-                              'px-4 py-3 rounded-[2px] border font-display uppercase text-xs tracking-[0.14em] transition-colors cursor-pointer',
-                              processor === option
-                                ? 'border-city-500 bg-city-900/40 text-bone'
-                                : 'border-noir-600 text-smoke hover:border-city-700 hover:text-bone',
-                            ].join(' ')}
-                          >
-                            {option === 'square' ? 'Square' : 'Stripe'}
-                          </button>
-                        ))}
-                      </div>
-                      <p className="text-xs text-smoke-dim mt-2.5">
-                        Both take all major cards. Your card details go straight to the payment
-                        provider — we never see them.
-                      </p>
-                    </fieldset>
+                    <p className="text-xs text-smoke-dim mb-6">
+                      Card payment is handled by Stripe, which takes all major cards. Your card
+                      details go straight to Stripe — we never see them.
+                    </p>
 
                     {actionError && (
                       <div className="mb-5">

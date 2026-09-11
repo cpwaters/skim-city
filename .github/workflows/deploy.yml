@@ -122,7 +122,7 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # Cloud Functions require the Blaze (pay-as-you-go) plan, because they make
-  # outbound calls to Square, Stripe, Resend and Telegram. Until the project is
+  # outbound calls to Stripe, Resend and Telegram. Until the project is
   # upgraded this job is skipped rather than failing the whole deploy — the
   # marketing site still ships. Set the repository variable DEPLOY_FUNCTIONS to
   # "true" once Blaze is enabled.

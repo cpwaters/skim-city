@@ -80,7 +80,7 @@ export function InvoicesPage() {
         ) : visible.length === 0 ? (
           <EmptyState
             title="Nothing to show"
-            message="Invoices raised against a job appear here, with their payment status kept up to date by Square and Stripe."
+            message="Invoices raised against a job appear here, with their payment status kept up to date by Stripe."
           />
         ) : (
           <ul className="divide-y divide-noir-700">
@@ -98,7 +98,7 @@ export function InvoicesPage() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-bone truncate">{customerName(invoice.customerId)}</p>
                     <p className="text-xs text-smoke">
-                      Due {shortDate(invoice.dueDate)} · {invoice.processor === 'square' ? 'Square' : 'Stripe'}
+                      Due {shortDate(invoice.dueDate)} · Stripe
                     </p>
                   </div>
 

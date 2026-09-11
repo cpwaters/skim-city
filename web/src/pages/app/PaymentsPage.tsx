@@ -40,7 +40,7 @@ export function PaymentsPage() {
 
   return (
     <>
-      <PageTitle title="Payments" subtitle="Every payment recorded from Square and Stripe" />
+      <PageTitle title="Payments" subtitle="Every payment recorded from Stripe" />
 
       <div className="grid grid-cols-3 gap-3 mb-5">
         <StatTile label="This month" value={moneyShort(totals.month)} tone="blue" />
@@ -54,7 +54,7 @@ export function PaymentsPage() {
         ) : payments.length === 0 ? (
           <EmptyState
             title="No payments yet"
-            message="Payments land here automatically the moment Square or Stripe confirms them — nothing to enter by hand."
+            message="Payments land here automatically the moment Stripe confirms them — nothing to enter by hand."
           />
         ) : (
           <ul className="divide-y divide-noir-700">
@@ -70,7 +70,7 @@ export function PaymentsPage() {
                       <p className="text-sm text-bone truncate">{customer?.name ?? 'Unknown customer'}</p>
                       <p className="text-xs text-smoke">
                         {invoice?.number ?? '—'} · {shortDate(payment.receivedAt.slice(0, 10))} ·{' '}
-                        {payment.processor === 'square' ? 'Square' : 'Stripe'}
+                        Stripe
                       </p>
                     </div>
                     <p className="text-sm text-[#5fd39a] tabular-nums shrink-0">

@@ -35,7 +35,7 @@ export type InvoiceStatus =
   | 'overdue'
   | 'void';
 
-export type Processor = 'square' | 'stripe';
+export type Processor = 'stripe';
 
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
 
@@ -149,7 +149,7 @@ export interface Invoice {
   status: InvoiceStatus;
   processor: Processor;
   processorInvoiceId?: string | null;
-  /** Hosted payment page provided by Square or Stripe. */
+  /** Hosted payment page provided by Stripe. */
   paymentUrl?: string | null;
   dueDate: string;
   sentAt?: string | null;

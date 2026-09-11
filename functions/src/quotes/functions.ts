@@ -4,8 +4,6 @@ import {
   REGION,
   RESEND_API_KEY,
   SITE_URL,
-  SQUARE_ACCESS_TOKEN,
-  SQUARE_LOCATION_ID,
   STRIPE_SECRET_KEY,
   TELEGRAM_BOT_TOKEN,
   TELEGRAM_CHAT_ID,
@@ -29,8 +27,6 @@ const QUOTE_SECRETS = [
   RESEND_API_KEY,
   TELEGRAM_BOT_TOKEN,
   TELEGRAM_CHAT_ID,
-  SQUARE_ACCESS_TOKEN,
-  SQUARE_LOCATION_ID,
   STRIPE_SECRET_KEY,
 ];
 
@@ -209,10 +205,9 @@ export const getQuote = onCall({ region: REGION, cors: true }, async (request) =
 export const acceptQuote = onCall({ region: REGION, cors: true, secrets: QUOTE_SECRETS }, async (request) => {
   assertAppCheck(request);
 
-  const { token, processor } = parseOrThrow(
+  const { token } = parseOrThrow(
     z.object({
       token: z.string().min(10).max(200),
-      processor: z.enum(['square', 'stripe']).default('square'),
     }),
     request.data,
   );
@@ -280,7 +275,7 @@ export const acceptQuote = onCall({ region: REGION, cors: true, secrets: QUOTE_S
     totalPence: quote.depositPence,
     amountPaidPence: 0,
     status: 'sent',
-    processor,
+    processor: 'stripe',
     processorInvoiceId: null,
     paymentUrl: null,
     dueDate,
@@ -293,7 +288,7 @@ export const acceptQuote = onCall({ region: REGION, cors: true, secrets: QUOTE_S
 
   let paymentUrl: string | null = null;
   try {
-    const result = await adapterFor(processor).createInvoice({
+    const result = await adapterFor('stripe').createInvoice({
       invoiceNumber: number,
       customer: { name: customer.name, email: customer.email, phone: customer.phone },
       lineItems,
@@ -314,7 +309,7 @@ export const acceptQuote = onCall({ region: REGION, cors: true, secrets: QUOTE_S
     // The acceptance itself still stands — Chris can raise the deposit
     // manually rather than the customer losing their acceptance.
     await notifyTelegram(
-      `<b>⚠️ Deposit invoice failed</b>\n\n${escapeHtml(customer.name)} accepted quote ${escapeHtml(quote.reference)} but the ${processor} invoice could not be created. Raise it by hand.`,
+      `<b>⚠️ Deposit invoice failed</b>\n\n${escapeHtml(customer.name)} accepted quote ${escapeHtml(quote.reference)} but the Stripe invoice could not be created. Raise it by hand.`,
       { template: 'deposit-failed', relatedTo: { quoteId: quote.id, jobId: job.id } },
     );
     throw new HttpsError('internal', 'We could not set up the payment. Chris has been alerted and will be in touch.');

@@ -8,7 +8,6 @@ import type {
   JobType,
   JobStatus,
   LineItem,
-  Processor,
 } from '../types/domain';
 
 /**
@@ -92,7 +91,7 @@ export interface PublicQuote {
 export const getQuote = callable<{ token: string }, PublicQuote>('getQuote');
 
 export const acceptQuote = callable<
-  { token: string; processor?: Processor },
+  { token: string },
   { alreadyAccepted: boolean; paymentUrl: string | null; depositPence: number; invoiceNumber?: string }
 >('acceptQuote');
 
@@ -102,7 +101,6 @@ export const createInvoice = callable<
   {
     jobId: string;
     kind: 'deposit' | 'balance' | 'full';
-    processor: Processor;
     lineItems?: LineItem[];
     dueDate?: string;
     memo?: string;

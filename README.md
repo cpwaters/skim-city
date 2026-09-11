@@ -103,9 +103,10 @@ rescheduled or edited by hand.
 
 ## Payments
 
-Square and Stripe are both fully wired, chosen per invoice. Neither is
-privileged — everything above `functions/src/payments/processor.ts` works in
-terms of the `PaymentAdapter` interface and never imports a vendor SDK directly.
+Stripe is the payment processor. Everything above
+`functions/src/payments/processor.ts` works in terms of the `PaymentAdapter`
+interface and never imports a vendor SDK directly, so a second processor would
+be a change to `functions/src/payments/` alone.
 
 Money is **integer pence everywhere**. Quotes get split into deposits and
 percentages, and floating-point pounds accumulate rounding error the moment you
@@ -236,7 +237,7 @@ processor would retry a payment we have already recorded.
    firebase login --reauth
    ```
 2. **Upgrade `skimcity-bac3b` to the Blaze plan.** Cloud Functions v2 and any
-   outbound call to Square, Stripe, Resend or Telegram require it. Everything
+   outbound call to Stripe, Resend or Telegram require it. Everything
    works on emulators until then.
 3. **Check the Firestore region.** `REGION` in `functions/src/lib/config.ts` is
    `europe-west2`. A Firestore location is permanent once set — if the project
@@ -245,9 +246,6 @@ processor would retry a payment we have already recorded.
 ### Secrets
 
 ```bash
-firebase functions:secrets:set SQUARE_ACCESS_TOKEN
-firebase functions:secrets:set SQUARE_LOCATION_ID
-firebase functions:secrets:set SQUARE_WEBHOOK_SIGNATURE_KEY
 firebase functions:secrets:set STRIPE_SECRET_KEY
 firebase functions:secrets:set STRIPE_WEBHOOK_SECRET
 firebase functions:secrets:set RESEND_API_KEY
@@ -259,8 +257,6 @@ Non-secret config goes in `functions/.env`:
 
 ```
 SITE_URL=https://skimcity.co.uk
-SQUARE_ENVIRONMENT=sandbox        # flip to `production` when live
-SQUARE_WEBHOOK_URL=https://europe-west2-skimcity-bac3b.cloudfunctions.net/squareWebhook
 FROM_EMAIL=Skim City <chris@skimcity.co.uk>
 ENFORCE_APP_CHECK=false           # flip to true once reCAPTCHA v3 is set up
 ```
@@ -287,11 +283,12 @@ an active `gcloud auth application-default login`.)
 
 | Processor | URL | Events |
 |---|---|---|
-| Square | `https://europe-west2-skimcity-bac3b.cloudfunctions.net/squareWebhook` | `invoice.payment_made` |
 | Stripe | `https://europe-west2-skimcity-bac3b.cloudfunctions.net/stripeWebhook` | `invoice.paid`, `invoice.payment_succeeded` |
 
-The Square notification URL must match `SQUARE_WEBHOOK_URL` **exactly** — it is
-part of the signature.
+The signing secret is issued when the endpoint is created, so it cannot be set
+before the first deploy. Set `STRIPE_WEBHOOK_SECRET` to a placeholder, deploy,
+register the endpoint, then set the real value and deploy again — Functions v2
+pins the secret version at deploy time.
 
 ---
 
@@ -299,7 +296,6 @@ part of the signature.
 
 | Service | What for | What to grab |
 |---|---|---|
-| Square | Invoices, card payments, in-person reader | Access token, location id, webhook signature key |
 | Stripe | Invoices, card payments | Secret key, webhook signing secret |
 | Resend | Sending quotes and invoices | API key + DNS records on `skimcity.co.uk` |
 | Telegram | Alerts to your phone | Bot token from `@BotFather`, your chat id |

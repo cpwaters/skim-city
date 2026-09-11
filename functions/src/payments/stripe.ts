@@ -120,7 +120,7 @@ export const stripeAdapter: PaymentAdapter = {
         processor: 'stripe',
         processorInvoiceId: invoice.id,
         processorPaymentId: event.id,
-        // amount_paid is cumulative for the invoice, matching Square's shape.
+        // amount_paid is cumulative for the invoice, not per-payment.
         cumulativePaidPence: invoice.amount_paid ?? 0,
         currency: (invoice.currency ?? 'gbp').toUpperCase(),
         method: 'card',
