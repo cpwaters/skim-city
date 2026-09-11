@@ -72,11 +72,14 @@ This one **is** a real credential.
 
 1. [console.cloud.google.com/iam-admin/serviceaccounts?project=skimcity-bac3b](https://console.cloud.google.com/iam-admin/serviceaccounts?project=skimcity-bac3b)
 2. **Create service account** — name it `github-deploy`
-3. Grant these roles:
-   - **Firebase Hosting Admin** — deploy the site and preview channels
-   - **Cloud Datastore Index Admin** — deploy Firestore indexes
-   - **Firebase Rules Admin** — deploy Firestore and Storage rules
-   - **Firebase Storage Admin** — read the default bucket the Storage rules attach to
+3. Grant these five roles — the role ID is given because the console's display
+   names don't always match what you'd guess, and searching for the wrong one
+   wastes a deploy:
+   - **Firebase Hosting Admin** (`roles/firebasehosting.admin`) — deploy the site and preview channels
+   - **Cloud Datastore Index Admin** (`roles/datastore.indexAdmin`) — deploy Firestore indexes
+   - **Firebase Rules Admin** (`roles/firebaserules.admin`) — deploy Firestore and Storage rules
+   - **Cloud Storage for Firebase Admin** (`roles/firebasestorage.admin`) — read the default bucket the Storage rules attach to. The console may label it *(Beta)*. It is not "Storage Admin", which is plain Cloud Storage and grants nothing this deploy needs
+   - **Service Usage Consumer** (`roles/serviceusage.serviceUsageConsumer`) — the CLI checks each required API is enabled before deploying, which is a Service Usage call
    - *(add later, only for Functions)* **Cloud Functions Admin**, **Service Account User**, **Secret Manager Secret Accessor**, **Artifact Registry Writer**
 4. **Keys → Add key → Create new key → JSON** → downloads a file
 5. `github.com/cpwaters/skim-city/settings/secrets/actions` → **New repository secret**
@@ -94,12 +97,26 @@ bucket also has to exist: [console → Storage](https://console.firebase.google.
 → **Get started** if it doesn't. Choose the same location as Firestore, because
 it can't be changed afterwards.
 
-> **The credential in use today is broader than this section describes.**
-> `FIREBASE_SERVICE_ACCOUNT` holds a key for a different service account than
-> the `github-deploy` one above, and it has been granted **Firebase Admin** to
-> get the first deploy through. That works, but a leaked key now reaches well
-> past hosting and rules. Narrowing it is steps 1–6 as written, followed by
-> deleting the old key from whichever account currently holds it.
+**Give IAM changes a few minutes before re-running.** A grant that is definitely
+correct can still fail the next deploy while it propagates, and firebase-tools
+reports the refusal as "Firebase Storage has not been set up" — which sounds
+like a missing bucket rather than a permission that hasn't landed yet. If a role
+looks right, wait and re-run before changing anything else.
+
+To see what a service account actually holds, rather than what it was meant to:
+
+```bash
+gcloud projects get-iam-policy skimcity-bac3b \
+  --flatten="bindings[].members" \
+  --filter="bindings.members:github-deploy@skimcity-bac3b.iam.gserviceaccount.com" \
+  --format="value(bindings.role)"
+```
+
+**Replacing an existing credential?** Update the secret, run the deploy, and
+only delete the superseded key once that run is green. Keep the working
+credential until the replacement is proven, or a bad paste leaves you unable to
+deploy at all. Delete the old *key*, not the account — another service may be
+using it.
 
 ### 4. Deploy
 
@@ -183,6 +200,20 @@ principal before granting anything — it may not be the account you expect.
 declares a composite index over a single field. Firestore indexes every field
 automatically and rejects one-field composites. Delete the entry; the query it
 was meant to serve already works.
+
+**"Firebase Storage has not been set up on project"** — usually untrue. The CLI
+prints this whenever its default-bucket lookup comes back empty, including when
+the lookup was refused, so it reads as a missing bucket when it's a missing or
+still-propagating permission. Check the bucket really is absent before setting
+anything up:
+
+```bash
+TOKEN=$(gcloud auth print-access-token)
+curl -s -H "Authorization: Bearer $TOKEN" \
+  https://firebasestorage.googleapis.com/v1alpha/projects/skimcity-bac3b/defaultBucket
+```
+
+A bucket object back means Storage is fine and the problem is the credential.
 
 **Functions deploy fails with "requires Blaze"** — expected on the free plan.
 Leave `DEPLOY_FUNCTIONS` unset until you've upgraded.
