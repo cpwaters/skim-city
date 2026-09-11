@@ -8,8 +8,8 @@ import type { MessageLogEntry } from '../domain';
  *
  * Notifications must never break the business action that triggered them, so
  * every failure here is logged and swallowed. A payment webhook that succeeded
- * should not return 500 because Telegram was briefly down — Square and Stripe
- * would then retry a payment we have already recorded.
+ * should not return 500 because Telegram was briefly down — Stripe would then
+ * retry a payment we have already recorded.
  */
 export async function notifyTelegram(
   text: string,

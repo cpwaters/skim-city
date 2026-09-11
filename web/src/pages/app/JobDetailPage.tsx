@@ -19,7 +19,7 @@ import {
   slotLabel,
   whatsappLink,
 } from '../../lib/format';
-import type { BusinessSettings, Customer, Invoice, Job, Payment, Processor, Quote } from '../../types/domain';
+import type { BusinessSettings, Customer, Invoice, Job, Payment, Quote } from '../../types/domain';
 
 /**
  * The spine of the CRM: everything about one job, and every action Chris takes
@@ -90,7 +90,6 @@ export function JobDetailPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionNote, setActionNote] = useState<string | null>(null);
-  const [processor, setProcessor] = useState<Processor>('square');
 
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} />;
@@ -321,7 +320,7 @@ export function JobDetailPage() {
                       <InvoiceStatusBadge status={invoice.status} />
                     </div>
                     <p className="text-xs text-smoke">
-                      {money(invoice.totalPence)} · {invoice.processor === 'square' ? 'Square' : 'Stripe'} ·
+                      {money(invoice.totalPence)} · Stripe ·
                       due {shortDate(invoice.dueDate)}
                     </p>
                     <div className="flex flex-wrap gap-3 mt-2">
@@ -366,7 +365,7 @@ export function JobDetailPage() {
                       <p className="text-sm text-bone tabular-nums">{money(payment.amountPence)}</p>
                       <p className="text-xs text-smoke-dim">
                         {shortDate(payment.receivedAt.slice(0, 10))} ·{' '}
-                        {payment.processor === 'square' ? 'Square' : 'Stripe'}
+                        Stripe
                       </p>
                     </div>
                     <span className="text-[0.6rem] font-display uppercase tracking-[0.12em] text-[#5fd39a]">
@@ -453,37 +452,13 @@ export function JobDetailPage() {
 
               {job.status === 'completed' && acceptedQuote && !hasBalanceInvoice && outstanding > 0 && (
                 <>
-                  <div>
-                    <p className="text-[0.6rem] font-display uppercase tracking-[0.16em] text-smoke-dim mb-2">
-                      Raise balance with
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(['square', 'stripe'] as const).map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          onClick={() => setProcessor(option)}
-                          aria-pressed={processor === option}
-                          className={[
-                            'px-3 py-2 rounded-[2px] border text-[0.65rem] font-display uppercase tracking-[0.12em] transition-colors cursor-pointer',
-                            processor === option
-                              ? 'border-city-500 bg-city-900/40 text-city-500'
-                              : 'border-noir-600 text-smoke hover:border-city-700',
-                          ].join(' ')}
-                        >
-                          {option}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   <Button
                     full
                     size="sm"
                     loading={busy === 'balance'}
                     onClick={() =>
                       void run('balance', async () => {
-                        const invoice = await createInvoice({ jobId: job.id, kind: 'balance', processor });
+                        const invoice = await createInvoice({ jobId: job.id, kind: 'balance' });
                         await sendInvoice({ invoiceId: invoice.invoiceId });
                         return `Balance invoice ${invoice.number} for ${money(invoice.totalPence)} sent.`;
                       })

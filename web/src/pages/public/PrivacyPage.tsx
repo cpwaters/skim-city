@@ -33,16 +33,16 @@ export function PrivacyPage() {
 
         <h2>Card payments</h2>
         <p>
-          Card payments are handled by Square and by Stripe. Your card details are entered on
-          their secure pages and are never seen, handled or stored by us. Both are independent
-          controllers for the payment data they process.
+          Card payments are handled by Stripe. Your card details are entered on their secure
+          pages and are never seen, handled or stored by us. Stripe is an independent
+          controller for the payment data it processes.
         </p>
 
         <h2>Who else sees it</h2>
         <p>We share the minimum necessary with:</p>
         <ul>
           <li>Google (Firebase) — hosting, database and application infrastructure;</li>
-          <li>Square and Stripe — payment processing and invoicing;</li>
+          <li>Stripe — payment processing and invoicing;</li>
           <li>Resend — sending you quotes, invoices and receipts by email; and</li>
           <li>our accountant, for tax and bookkeeping.</li>
         </ul>

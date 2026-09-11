@@ -137,7 +137,7 @@ site is at:
 Hosting works on the free Spark plan, so the marketing site goes live without
 this. But **booking, quotes, invoices, payments, the gallery and reviews all run
 through Cloud Functions**, and Functions need the Blaze plan — they make
-outbound calls to Square, Stripe, Resend and Telegram, which Google doesn't
+outbound calls to Stripe, Resend and Telegram, which Google doesn't
 permit on the free tier.
 
 Until then, `deploy.yml` skips the Functions job rather than failing the whole
@@ -153,9 +153,6 @@ To enable:
 
    ```bash
    firebase login --reauth        # your CLI token has expired
-   firebase functions:secrets:set SQUARE_ACCESS_TOKEN
-   firebase functions:secrets:set SQUARE_LOCATION_ID
-   firebase functions:secrets:set SQUARE_WEBHOOK_SIGNATURE_KEY
    firebase functions:secrets:set STRIPE_SECRET_KEY
    firebase functions:secrets:set STRIPE_WEBHOOK_SECRET
    firebase functions:secrets:set RESEND_API_KEY
@@ -168,9 +165,10 @@ To enable:
    Actions run can't read them.
 
 4. **Set repository variable `DEPLOY_FUNCTIONS` to `true`**, then re-run Deploy.
-5. **Register the webhook URLs** with Square and Stripe — see the table in
-   `README.md`. The Square notification URL must match `SQUARE_WEBHOOK_URL` in
-   `functions/.env` exactly, because Square signs over that string.
+5. **Register the webhook URL** with Stripe — see the table in `README.md`.
+   The signing secret only exists once the endpoint is created, so deploy with
+   `STRIPE_WEBHOOK_SECRET` set to a placeholder, register the endpoint, then set
+   the real value and deploy again.
 6. **Grant yourself CRM access:**
    ```bash
    npm run grant-admin -- chris@skimcity.co.uk

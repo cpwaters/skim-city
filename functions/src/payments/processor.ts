@@ -1,9 +1,9 @@
 import type { LineItem, Processor } from '../domain';
 
 /**
- * One interface, two adapters. Chris picks Square or Stripe per invoice, so
- * neither is privileged: everything above this layer works in terms of
- * `PaymentAdapter` and never imports a vendor SDK directly.
+ * One interface, one adapter. Stripe is the only processor, but everything
+ * above this layer works in terms of `PaymentAdapter` and never imports a
+ * vendor SDK directly, so adding another is a change to this folder alone.
  */
 
 export interface InvoiceCustomer {
@@ -37,9 +37,9 @@ export interface CreateInvoiceResult {
  * Normalised payment notification.
  *
  * `cumulativePaidPence` is the processor's running total for the invoice rather
- * than the amount of this single payment. Both Square and Stripe report it that
- * way, and it makes replays trivially safe: we compare against what we have
- * already recorded and do nothing when the delta is zero or negative.
+ * than the amount of this single payment. Stripe reports it that way, and it
+ * makes replays trivially safe: we compare against what we have already
+ * recorded and do nothing when the delta is zero or negative.
  */
 export interface NormalisedPaymentEvent {
   eventId: string;

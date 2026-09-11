@@ -10,9 +10,9 @@ import type { Customer, Invoice, Job, Payment } from '../domain';
 /**
  * Records a payment and moves everything downstream of it.
  *
- * Idempotency matters more here than anywhere else in the system: Square and
- * Stripe both retry webhooks, and a duplicate would overstate revenue and could
- * mark an invoice paid twice. Two independent guards handle it —
+ * Idempotency matters more here than anywhere else in the system: Stripe
+ * retries webhooks, and a duplicate would overstate revenue and could mark an
+ * invoice paid twice. Two independent guards handle it —
  *
  *   1. the ledger document id is derived from the processor's event id, so a
  *      replay overwrites rather than appends; and
@@ -30,7 +30,7 @@ export async function applyPaymentEvent(event: NormalisedPaymentEvent): Promise<
     .get();
 
   if (invoiceQuery.empty) {
-    // Not ours — a Square invoice raised by hand in their dashboard, say.
+    // Not ours — a Stripe invoice raised by hand in their dashboard, say.
     console.warn(`No invoice found for ${event.processor} invoice ${event.processorInvoiceId}`);
     return;
   }
@@ -122,7 +122,7 @@ export async function applyPaymentEvent(event: NormalisedPaymentEvent): Promise<
       [
         `<b>💷 Payment received</b>`,
         ``,
-        `${formatMoney(deltaPence)} via ${event.processor === 'square' ? 'Square' : 'Stripe'}`,
+        `${formatMoney(deltaPence)} via Stripe`,
         `Invoice ${invoice.number} (${invoice.kind})`,
         customer ? `From ${customer.name}` : '',
         settled ? 'Invoice settled in full.' : `Outstanding: ${formatMoney(outstanding)}`,

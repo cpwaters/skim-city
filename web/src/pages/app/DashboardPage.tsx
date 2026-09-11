@@ -134,7 +134,7 @@ export function DashboardPage() {
                     <p className="text-sm text-bone">{money(payment.amountPence)}</p>
                     <p className="text-xs text-smoke-dim">
                       {shortDate(payment.receivedAt.slice(0, 10))} ·{' '}
-                      {payment.processor === 'square' ? 'Square' : 'Stripe'}
+                      Stripe
                     </p>
                   </div>
                   <span className="text-[0.6rem] font-display uppercase tracking-[0.12em] text-[#5fd39a]">

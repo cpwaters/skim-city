@@ -5,7 +5,7 @@ import { BUSINESS } from '../../lib/business';
 import { formatPhone } from '../../lib/format';
 
 /**
- * Where Square and Stripe send the customer back to after checkout.
+ * Where Stripe sends the customer back to after checkout.
  *
  * This page reports the *redirect*, not the payment: the money is only
  * confirmed when the processor's webhook reaches us. The copy is careful not

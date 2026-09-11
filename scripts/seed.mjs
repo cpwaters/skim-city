@@ -186,8 +186,8 @@ const invoices = [
     totalPence: 8400,
     amountPaidPence: 8400,
     status: 'paid',
-    processor: 'square',
-    processorInvoiceId: 'seed-square-invoice-1',
+    processor: 'stripe',
+    processorInvoiceId: 'seed-stripe-invoice-1',
     paymentUrl: null,
     dueDate: isoDate(7),
     sentAt: now,
@@ -219,10 +219,10 @@ const invoices = [
 
 const payments = [
   {
-    id: 'square_seed-payment-1',
+    id: 'stripe_seed-payment-1',
     invoiceId: 'inv-hartley-deposit',
     jobId: 'job-hartley-ceiling',
-    processor: 'square',
+    processor: 'stripe',
     processorPaymentId: 'seed-payment-1',
     amountPence: 8400,
     currency: 'GBP',

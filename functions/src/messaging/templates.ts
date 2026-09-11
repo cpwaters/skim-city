@@ -212,7 +212,7 @@ export function invoiceEmail(params: {
           showVat: params.showVat,
         })}
         <p style="margin:0;color:${SMOKE};font-size:14px;">
-          Card payment is handled securely by ${invoice.processor === 'square' ? 'Square' : 'Stripe'}.
+          Card payment is handled securely by Stripe.
           We never see or store your card details.
         </p>`,
       ...(invoice.paymentUrl ? { cta: { label: 'Pay now', url: invoice.paymentUrl } } : {}),

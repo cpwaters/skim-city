@@ -1,31 +1,19 @@
 import { onRequest } from 'firebase-functions/v2/https';
-import { defineString } from 'firebase-functions/params';
 import type { Response } from 'firebase-functions/v1';
 import {
   REGION,
   RESEND_API_KEY,
-  SQUARE_ACCESS_TOKEN,
-  SQUARE_LOCATION_ID,
-  SQUARE_WEBHOOK_SIGNATURE_KEY,
   STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET,
   TELEGRAM_BOT_TOKEN,
   TELEGRAM_CHAT_ID,
 } from '../lib/config';
-import { squareAdapter } from './square';
 import { stripeAdapter } from './stripe';
 import { applyPaymentEvent } from './apply';
 import { WebhookConfigError, WebhookSignatureError, type PaymentAdapter } from './processor';
 
 /**
- * Square verifies the signature against the exact notification URL registered
- * in the developer dashboard, so it has to be configured rather than inferred —
- * a proxy rewriting the Host header would silently break verification.
- */
-const SQUARE_WEBHOOK_URL = defineString('SQUARE_WEBHOOK_URL', { default: '' });
-
-/**
- * Shared webhook handling for both processors.
+ * Webhook handling for the payment processor.
  *
  * The status code is the whole point of this function, because it decides
  * whether the processor retries:
@@ -83,34 +71,6 @@ async function handleWebhook(
     res.status(500).send('Webhook processing failed');
   }
 }
-
-export const squareWebhook = onRequest(
-  {
-    region: REGION,
-    secrets: [
-      SQUARE_ACCESS_TOKEN,
-      SQUARE_LOCATION_ID,
-      SQUARE_WEBHOOK_SIGNATURE_KEY,
-      RESEND_API_KEY,
-      TELEGRAM_BOT_TOKEN,
-      TELEGRAM_CHAT_ID,
-    ],
-  },
-  async (req, res) => {
-    if (req.method !== 'POST') {
-      res.status(405).send('Method not allowed');
-      return;
-    }
-
-    await handleWebhook(
-      squareAdapter,
-      req.rawBody?.toString('utf8') ?? '',
-      req.headers as Record<string, string | undefined>,
-      SQUARE_WEBHOOK_URL.value() || `https://${req.headers.host}${req.originalUrl ?? req.url}`,
-      res,
-    );
-  },
-);
 
 export const stripeWebhook = onRequest(
   {
