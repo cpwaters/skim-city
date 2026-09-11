@@ -1,0 +1,45 @@
+name: Authenticate to Firebase
+description: >
+  Write the deploy service account key to a file outside the workspace and point
+  GOOGLE_APPLICATION_CREDENTIALS at it. Fails here when the secret is missing or
+  malformed, rather than letting a later step report it as something else.
+
+inputs:
+  service-account:
+    description: The FIREBASE_SERVICE_ACCOUNT secret — the whole JSON key file.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Write the credential
+      shell: bash
+      # Written outside the workspace so it cannot be picked up by a later step,
+      # committed, or uploaded as an artifact. Never echoed.
+      #
+      # Passed through env rather than interpolated into the script: a secret
+      # containing a quote would otherwise break the shell around it.
+      env:
+        FIREBASE_SERVICE_ACCOUNT: ${{ inputs.service-account }}
+      run: |
+        install -m 600 /dev/null "$RUNNER_TEMP/gcp-key.json"
+        printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/gcp-key.json"
+
+        # An unset secret writes an empty file and this step still exits 0, so
+        # the real failure surfaced later as a bare "Failed to authenticate,
+        # have you run firebase login?" — which points at the wrong thing
+        # entirely. Fail here, where the cause is obvious.
+        if [ ! -s "$RUNNER_TEMP/gcp-key.json" ]; then
+          echo "::error::FIREBASE_SERVICE_ACCOUNT is empty or not set. See DEPLOYMENT.md step 3 for the service account and roles it needs."
+          exit 1
+        fi
+
+        if ! node -e '
+          const key = require(`${process.env.RUNNER_TEMP}/gcp-key.json`);
+          if (key.type !== "service_account" || !key.client_email || !key.private_key) process.exit(1);
+        ' 2>/dev/null; then
+          echo "::error::FIREBASE_SERVICE_ACCOUNT is not a valid service account key. Expected the full JSON file, with type=service_account, client_email and private_key."
+          exit 1
+        fi
+
+        echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/gcp-key.json" >> "$GITHUB_ENV"

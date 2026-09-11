@@ -57,10 +57,9 @@ jobs:
         run: npm --prefix web run build
 
       - name: Authenticate to Firebase
-        run: |
-          install -m 600 /dev/null "$RUNNER_TEMP/gcp-key.json"
-          printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/gcp-key.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/gcp-key.json" >> "$GITHUB_ENV"
+        uses: ./.github/actions/firebase-auth
+        with:
+          service-account: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Deploy to preview channel
         id: preview
