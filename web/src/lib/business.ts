@@ -8,7 +8,7 @@
 export const BUSINESS = {
   name: 'Skim City',
   tagline: 'Taking the rough to the smooth',
-  phone: '07876308681',
+  phone: '07464848570',
   email: 'chris@skimcity.co.uk',
   city: 'Manchester',
   whatsappGreeting: "Hi Chris, I'm after a plastering quote —",
