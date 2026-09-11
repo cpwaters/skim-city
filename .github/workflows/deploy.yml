@@ -105,12 +105,24 @@ jobs:
 
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/gcp-key.json" >> "$GITHUB_ENV"
 
-      - name: Deploy security rules and indexes
+      - name: Deploy Firestore rules and indexes
         # Rules go out before the site: if a release tightens a rule, it should
         # be live before the code that depends on it.
         run: |
           npx --yes firebase-tools@15.28.2 deploy \
-            --only firestore:rules,firestore:indexes,storage \
+            --only firestore:rules,firestore:indexes \
+            --project "$FIREBASE_PROJECT" \
+            --non-interactive
+
+      - name: Deploy Storage rules
+        # Split from Firestore because the two fail independently. Deploying
+        # storage rules first reads the project's default bucket, so a project
+        # without Storage enabled — or a deploy credential missing
+        # firebasestorage.defaultBucket.get — took the Firestore rules down
+        # with it. Still blocking: storage.rules is what guards the job photos.
+        run: |
+          npx --yes firebase-tools@15.28.2 deploy \
+            --only storage \
             --project "$FIREBASE_PROJECT" \
             --non-interactive
 
