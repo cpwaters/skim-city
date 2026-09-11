@@ -80,6 +80,7 @@ This one **is** a real credential.
    - **Firebase Rules Admin** (`roles/firebaserules.admin`) — deploy Firestore and Storage rules
    - **Cloud Storage for Firebase Admin** (`roles/firebasestorage.admin`) — read the default bucket the Storage rules attach to. The console may label it *(Beta)*. It is not "Storage Admin", which is plain Cloud Storage and grants nothing this deploy needs
    - **Service Usage Consumer** (`roles/serviceusage.serviceUsageConsumer`) — the CLI checks each required API is enabled before deploying, which is a Service Usage call
+   - **Storage Admin** (`roles/storage.admin`) — also needed for the Storage step, on top of the Firebase one above. Verified by removing it: the step fails without it. `roles/storage.bucketViewer` is 2 permissions rather than 113 and looks like it should be enough, but hasn't been tried
    - *(add later, only for Functions)* **Cloud Functions Admin**, **Service Account User**, **Secret Manager Secret Accessor**, **Artifact Registry Writer**
 4. **Keys → Add key → Create new key → JSON** → downloads a file
 5. `github.com/cpwaters/skim-city/settings/secrets/actions` → **New repository secret**
@@ -97,11 +98,15 @@ bucket also has to exist: [console → Storage](https://console.firebase.google.
 → **Get started** if it doesn't. Choose the same location as Firestore, because
 it can't be changed afterwards.
 
-**Give IAM changes a few minutes before re-running.** A grant that is definitely
-correct can still fail the next deploy while it propagates, and firebase-tools
-reports the refusal as "Firebase Storage has not been set up" — which sounds
-like a missing bucket rather than a permission that hasn't landed yet. If a role
-looks right, wait and re-run before changing anything else.
+**The Storage step needs two separate grants.** `roles/firebasestorage.admin`
+covers the Firebase side of the default-bucket lookup and `roles/storage.admin`
+the Cloud Storage side; the step fails with only one of them. It fails with the
+same message either way — "Firebase Storage has not been set up" — which names
+neither, and describes a third thing that isn't wrong.
+
+IAM changes can also take a minute or two to take effect, so a grant that is
+genuinely correct can fail a deploy run immediately after being added. Re-run
+once before concluding it was the wrong role.
 
 To see what a service account actually holds, rather than what it was meant to:
 
