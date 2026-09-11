@@ -110,7 +110,7 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   void: 'Void',
 };
 
-/** `07876 308681` */
+/** `07464 848570` */
 export function formatPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   const national = digits.startsWith('44') ? `0${digits.slice(2)}` : digits;

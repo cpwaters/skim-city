@@ -2,13 +2,13 @@
  * WhatsApp is click-to-chat, not an API integration.
  *
  * The CRM builds a wa.me deep link with the message pre-filled and Chris sends
- * it from his own WhatsApp on 07876308681. This keeps his existing number and
+ * it from his own WhatsApp on 07464848570. This keeps his existing number and
  * chat history, needs no Meta business verification or template approval, and
  * costs nothing per message. If volume ever justifies the Cloud API, the call
  * sites already funnel through this one helper.
  */
 
-/** Converts a UK number in any common format to E.164 digits (447876308681). */
+/** Converts a UK number in any common format to E.164 digits (447464848570). */
 export function toE164UK(phone: string): string {
   const digits = phone.replace(/[^\d+]/g, '');
   if (digits.startsWith('+')) return digits.slice(1);

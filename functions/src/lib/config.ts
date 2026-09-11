@@ -26,6 +26,6 @@ export const SITE_URL = defineString('SITE_URL', { default: 'https://skimcity.co
 export const SQUARE_ENVIRONMENT = defineString('SQUARE_ENVIRONMENT', { default: 'sandbox' });
 export const FROM_EMAIL = defineString('FROM_EMAIL', { default: 'Skim City <chris@skimcity.co.uk>' });
 
-export const BUSINESS_PHONE = '07876308681';
+export const BUSINESS_PHONE = '07464848570';
 export const BUSINESS_EMAIL = 'chris@skimcity.co.uk';
 export const TAGLINE = 'Taking the rough to the smooth';

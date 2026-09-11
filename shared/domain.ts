@@ -324,7 +324,7 @@ export interface BookingRequestPayload {
 export const DEFAULT_BUSINESS_SETTINGS: BusinessSettings = {
   tradingName: 'Skim City',
   email: 'chris@skimcity.co.uk',
-  phone: '07876308681',
+  phone: '07464848570',
   addressLines: ['Manchester', 'United Kingdom'],
   dayRatePence: 25000,
   repairRatePence: 12000,
