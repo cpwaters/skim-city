@@ -72,10 +72,15 @@ This one **is** a real credential.
 
 1. [console.cloud.google.com/iam-admin/serviceaccounts?project=skimcity-bac3b](https://console.cloud.google.com/iam-admin/serviceaccounts?project=skimcity-bac3b)
 2. **Create service account** — name it `github-deploy`
-3. Grant these roles:
-   - **Firebase Hosting Admin** — deploy the site and preview channels
-   - **Cloud Datastore Index Admin** — deploy Firestore indexes
-   - **Firebase Rules Admin** — deploy Firestore and Storage rules
+3. Grant these five roles — the role ID is given because the console's display
+   names don't always match what you'd guess, and searching for the wrong one
+   wastes a deploy:
+   - **Firebase Hosting Admin** (`roles/firebasehosting.admin`) — deploy the site and preview channels
+   - **Cloud Datastore Index Admin** (`roles/datastore.indexAdmin`) — deploy Firestore indexes
+   - **Firebase Rules Admin** (`roles/firebaserules.admin`) — deploy Firestore and Storage rules
+   - **Cloud Storage for Firebase Admin** (`roles/firebasestorage.admin`) — read the default bucket the Storage rules attach to. The console may label it *(Beta)*. It is not "Storage Admin", which is plain Cloud Storage and grants nothing this deploy needs
+   - **Service Usage Consumer** (`roles/serviceusage.serviceUsageConsumer`) — the CLI checks each required API is enabled before deploying, which is a Service Usage call
+   - **Storage Admin** (`roles/storage.admin`) — also needed for the Storage step, on top of the Firebase one above. Verified by removing it: the step fails without it. `roles/storage.bucketViewer` is 2 permissions rather than 113 and looks like it should be enough, but hasn't been tried
    - *(add later, only for Functions)* **Cloud Functions Admin**, **Service Account User**, **Secret Manager Secret Accessor**, **Artifact Registry Writer**
 4. **Keys → Add key → Create new key → JSON** → downloads a file
 5. `github.com/cpwaters/skim-city/settings/secrets/actions` → **New repository secret**
@@ -85,6 +90,38 @@ This one **is** a real credential.
 
 Give it only the roles above rather than Owner. If the key ever leaks, the blast
 radius is your hosting and rules, not the whole Google Cloud project.
+
+**Firebase Rules Admin alone isn't enough for Storage.** Deploying the Storage
+rules looks up the project's default bucket first, which is a separate
+permission — `firebasestorage.defaultBucket.get` — hence the Storage role. The
+bucket also has to exist: [console → Storage](https://console.firebase.google.com/project/skimcity-bac3b/storage)
+→ **Get started** if it doesn't. Choose the same location as Firestore, because
+it can't be changed afterwards.
+
+**The Storage step needs two separate grants.** `roles/firebasestorage.admin`
+covers the Firebase side of the default-bucket lookup and `roles/storage.admin`
+the Cloud Storage side; the step fails with only one of them. It fails with the
+same message either way — "Firebase Storage has not been set up" — which names
+neither, and describes a third thing that isn't wrong.
+
+IAM changes can also take a minute or two to take effect, so a grant that is
+genuinely correct can fail a deploy run immediately after being added. Re-run
+once before concluding it was the wrong role.
+
+To see what a service account actually holds, rather than what it was meant to:
+
+```bash
+gcloud projects get-iam-policy skimcity-bac3b \
+  --flatten="bindings[].members" \
+  --filter="bindings.members:github-deploy@skimcity-bac3b.iam.gserviceaccount.com" \
+  --format="value(bindings.role)"
+```
+
+**Replacing an existing credential?** Update the secret, run the deploy, and
+only delete the superseded key once that run is green. Keep the working
+credential until the replacement is proven, or a bad paste leaves you unable to
+deploy at all. Delete the old *key*, not the account — another service may be
+using it.
 
 ### 4. Deploy
 
@@ -159,8 +196,29 @@ quote and review emails point at the real domain rather than `web.app`.
 step 2 isn't done, or a variable name is misspelled. The message names the
 offending variable.
 
-**`HTTP Error: 403` on deploy** — the service account is missing a role from
-step 3. The error names the permission it wanted.
+**`HTTP Error: 403` on deploy** — the deploy service account is missing a role.
+The error names the permission it wanted and ends with a troubleshooter URL;
+open that, because it names the principal that was actually denied. Check that
+principal before granting anything — it may not be the account you expect.
+
+**`HTTP Error: 400, this index is not necessary`** — `firestore.indexes.json`
+declares a composite index over a single field. Firestore indexes every field
+automatically and rejects one-field composites. Delete the entry; the query it
+was meant to serve already works.
+
+**"Firebase Storage has not been set up on project"** — usually untrue. The CLI
+prints this whenever its default-bucket lookup comes back empty, including when
+the lookup was refused, so it reads as a missing bucket when it's a missing or
+still-propagating permission. Check the bucket really is absent before setting
+anything up:
+
+```bash
+TOKEN=$(gcloud auth print-access-token)
+curl -s -H "Authorization: Bearer $TOKEN" \
+  https://firebasestorage.googleapis.com/v1alpha/projects/skimcity-bac3b/defaultBucket
+```
+
+A bucket object back means Storage is fine and the problem is the credential.
 
 **Functions deploy fails with "requires Blaze"** — expected on the free plan.
 Leave `DEPLOY_FUNCTIONS` unset until you've upgraded.
