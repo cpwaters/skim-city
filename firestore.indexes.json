@@ -71,16 +71,6 @@
       ]
     },
     {
-      "collectionGroup": "quotes",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "publicToken",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "payments",
       "queryScope": "COLLECTION",
       "fields": [
@@ -119,16 +109,6 @@
         {
           "fieldPath": "submittedAt",
           "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "reviews",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "requestToken",
-          "order": "ASCENDING"
         }
       ]
     }
