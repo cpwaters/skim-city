@@ -76,6 +76,7 @@ This one **is** a real credential.
    - **Firebase Hosting Admin** — deploy the site and preview channels
    - **Cloud Datastore Index Admin** — deploy Firestore indexes
    - **Firebase Rules Admin** — deploy Firestore and Storage rules
+   - **Firebase Storage Admin** — read the default bucket the Storage rules attach to
    - *(add later, only for Functions)* **Cloud Functions Admin**, **Service Account User**, **Secret Manager Secret Accessor**, **Artifact Registry Writer**
 4. **Keys → Add key → Create new key → JSON** → downloads a file
 5. `github.com/cpwaters/skim-city/settings/secrets/actions` → **New repository secret**
@@ -85,6 +86,20 @@ This one **is** a real credential.
 
 Give it only the roles above rather than Owner. If the key ever leaks, the blast
 radius is your hosting and rules, not the whole Google Cloud project.
+
+**Firebase Rules Admin alone isn't enough for Storage.** Deploying the Storage
+rules looks up the project's default bucket first, which is a separate
+permission — `firebasestorage.defaultBucket.get` — hence the Storage role. The
+bucket also has to exist: [console → Storage](https://console.firebase.google.com/project/skimcity-bac3b/storage)
+→ **Get started** if it doesn't. Choose the same location as Firestore, because
+it can't be changed afterwards.
+
+> **The credential in use today is broader than this section describes.**
+> `FIREBASE_SERVICE_ACCOUNT` holds a key for a different service account than
+> the `github-deploy` one above, and it has been granted **Firebase Admin** to
+> get the first deploy through. That works, but a leaked key now reaches well
+> past hosting and rules. Narrowing it is steps 1–6 as written, followed by
+> deleting the old key from whichever account currently holds it.
 
 ### 4. Deploy
 
@@ -159,8 +174,15 @@ quote and review emails point at the real domain rather than `web.app`.
 step 2 isn't done, or a variable name is misspelled. The message names the
 offending variable.
 
-**`HTTP Error: 403` on deploy** — the service account is missing a role from
-step 3. The error names the permission it wanted.
+**`HTTP Error: 403` on deploy** — the deploy service account is missing a role.
+The error names the permission it wanted and ends with a troubleshooter URL;
+open that, because it names the principal that was actually denied. Check that
+principal before granting anything — it may not be the account you expect.
+
+**`HTTP Error: 400, this index is not necessary`** — `firestore.indexes.json`
+declares a composite index over a single field. Firestore indexes every field
+automatically and rejects one-field composites. Delete the entry; the query it
+was meant to serve already works.
 
 **Functions deploy fails with "requires Blaze"** — expected on the free plan.
 Leave `DEPLOY_FUNCTIONS` unset until you've upgraded.
