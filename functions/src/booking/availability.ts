@@ -86,15 +86,6 @@ export function claimDaysInTransaction(
   }
 }
 
-export function claimSlotInTransaction(
-  tx: Transaction,
-  day: DayBooking,
-  slot: JobSlot,
-  jobId: string,
-): void {
-  claimDaysInTransaction(tx, [day], slot, jobId);
-}
-
 function writeDay(tx: Transaction, day: DayBooking): void {
   tx.set(db.collection(COLLECTIONS.dayBookings).doc(day.date), day);
   tx.set(db.collection(COLLECTIONS.availability).doc(day.date), projectAvailability(day));

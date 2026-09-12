@@ -308,19 +308,6 @@ export interface MessageLogEntry {
   createdAt: string;
 }
 
-/** Payload the public booking form posts to the `requestBooking` function. */
-export interface BookingRequestPayload {
-  name: string;
-  phone: string;
-  email: string;
-  type: JobType;
-  date: string;
-  slot: JobSlot;
-  address: Address;
-  description: string;
-  photos?: string[];
-}
-
 export const DEFAULT_BUSINESS_SETTINGS: BusinessSettings = {
   tradingName: 'Skim City',
   email: 'chris@skimcity.co.uk',

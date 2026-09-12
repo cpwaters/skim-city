@@ -12,7 +12,7 @@ import type { GalleryItem } from '../domain';
  *
  * Served through a callable rather than read from Firestore in the browser so
  * the public bundle never has to load the Firestore SDK — the same reason
- * getAvailability exists. Returns published items only, in display order.
+ * the public site cannot read Firestore. Returns published items only, in display order.
  */
 export const getGallery = onCall({ region: REGION, cors: true }, async (request) => {
   assertAppCheck(request);

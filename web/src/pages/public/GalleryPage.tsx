@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { PageHeader } from '../../components/public/PageHeader';
 import { BeforeAfter } from '../../components/public/BeforeAfter';
 import { ButtonLink } from '../../components/ui/Button';
+import { BUSINESS } from '../../lib/business';
+import { formatPhone } from '../../lib/format';
 import { Spinner } from '../../components/ui/States';
 import { getGallery, type PublicGalleryItem } from '../../lib/callables';
 import { PLACEHOLDER_GALLERY } from '../../lib/gallery';
@@ -110,10 +112,10 @@ export function GalleryPage() {
         <div className="mt-14 text-center border-t border-noir-700 pt-12">
           <h2 className="display text-2xl text-bone mb-3">Want yours on here?</h2>
           <p className="text-smoke mb-7 max-w-md mx-auto">
-            Book a slot and we'll get your walls looking like they should.
+            Give us a ring and we'll get your walls looking like they should.
           </p>
-          <ButtonLink to="/book" size="lg">
-            Book a slot
+          <ButtonLink to={`tel:${BUSINESS.phone}`} size="lg">
+            Call {formatPhone(BUSINESS.phone)}
           </ButtonLink>
         </div>
       </section>

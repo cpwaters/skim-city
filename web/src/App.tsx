@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { PublicLayout } from './components/public/PublicLayout';
 import { ScrollToTop } from './components/ScrollToTop';
 import { Spinner } from './components/ui/States';
@@ -11,7 +11,6 @@ import { ServicesPage } from './pages/public/ServicesPage';
 import { GalleryPage } from './pages/public/GalleryPage';
 import { ReviewsPage } from './pages/public/ReviewsPage';
 import { ReviewPage } from './pages/public/ReviewPage';
-import { BookPage } from './pages/public/BookPage';
 import { ContactPage } from './pages/public/ContactPage';
 import { QuotePage } from './pages/public/QuotePage';
 import { PaymentResultPage } from './pages/public/PaymentResultPage';
@@ -36,7 +35,7 @@ export function App() {
           <Route path="services" element={<ServicesPage />} />
           <Route path="gallery" element={<GalleryPage />} />
           <Route path="reviews" element={<ReviewsPage />} />
-          <Route path="book" element={<BookPage />} />
+          <Route path="book" element={<Navigate to="/contact" replace />} />
           <Route path="contact" element={<ContactPage />} />
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="terms" element={<TermsPage />} />

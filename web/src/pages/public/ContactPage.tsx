@@ -1,5 +1,4 @@
 import { PageHeader } from '../../components/public/PageHeader';
-import { ButtonLink } from '../../components/ui/Button';
 import { BUSINESS } from '../../lib/business';
 import { formatPhone, whatsappLink } from '../../lib/format';
 
@@ -33,7 +32,7 @@ export function ContactPage() {
       <PageHeader
         eyebrow="Get in touch"
         title="Contact"
-        intro="Ring, message or book a slot straight from the calendar. Quotes are free and there's no obligation."
+        intro="Ring or message and we'll sort a date between us. Quotes are free and there's no obligation."
       />
 
       <section className="mx-auto max-w-4xl px-5 py-16 sm:py-20">
@@ -72,12 +71,6 @@ export function ContactPage() {
               8am–12pm and afternoon slots 1pm–5pm.
             </p>
           </div>
-        </div>
-
-        <div className="mt-12 text-center">
-          <ButtonLink to="/book" size="lg">
-            Book a slot online
-          </ButtonLink>
         </div>
       </section>
     </>

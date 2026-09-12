@@ -3,14 +3,13 @@ rules_version = '2';
 // SKIM CITY — Firestore security rules
 //
 // Principle: the browser never reads or writes business data directly.
-// Everything the public needs goes through Cloud Functions, with one
-// deliberate exception: the sanitised `availability` collection, which is
-// public-read so the booking calendar can render without a round trip.
+// Everything the public needs goes through Cloud Functions. There are no
+// public-read collections.
 //
-// Firestore rules cannot restrict which *fields* a read returns, so anything
-// publicly readable must contain no customer data at all. That is why
-// `availability` (free/taken booleans) is kept separate from `dayBookings`
-// (the private mirror holding job ids).
+// `availability` was the one exception, public-read so the booking calendar
+// could render without a round trip. The public calendar is gone — slots are
+// set in the CRM — so it is admin-only again. It stays separate from
+// `dayBookings` because it holds no job ids, and the diary reads it directly.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -19,10 +18,10 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.admin == true;
     }
 
-    // Public booking calendar. Booleans only — never customer data.
+    // The diary's day projection. Booleans only, no job ids.
     // Written exclusively by Cloud Functions via the Admin SDK.
     match /availability/{date} {
-      allow read: if true;
+      allow read: if isAdmin();
       allow write: if false;
     }
 

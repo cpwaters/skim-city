@@ -1,4 +1,6 @@
 import { ButtonLink } from '../../components/ui/Button';
+import { BUSINESS } from '../../lib/business';
+import { formatPhone } from '../../lib/format';
 import { SERVICES } from '../../lib/services';
 import { PageHeader } from '../../components/public/PageHeader';
 
@@ -51,8 +53,8 @@ export function ServicesPage() {
         </div>
 
         <div className="mt-12 text-center">
-          <ButtonLink to="/book" size="lg">
-            Check the calendar
+          <ButtonLink to={`tel:${BUSINESS.phone}`} size="lg">
+            Call {formatPhone(BUSINESS.phone)}
           </ButtonLink>
         </div>
       </section>
