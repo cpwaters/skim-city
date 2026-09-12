@@ -101,11 +101,11 @@ export function ReviewsPage() {
         <div className="mt-14 text-center border-t border-noir-700 pt-12">
           <h2 className="display text-2xl text-bone mb-3">Fancy joining them?</h2>
           <p className="text-smoke mb-7 max-w-md mx-auto">
-            Book a slot, or send a photo of the wall and we'll price it up.
+            Give us a ring, or send a photo of the wall and we'll price it up.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <ButtonLink to="/book" size="lg">
-              Book a slot
+            <ButtonLink to={`tel:${BUSINESS.phone}`} size="lg">
+              Call {formatPhone(BUSINESS.phone)}
             </ButtonLink>
             <ButtonLink
               to={whatsappLink(BUSINESS.phone, BUSINESS.whatsappGreeting)}

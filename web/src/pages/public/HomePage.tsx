@@ -36,8 +36,8 @@ function Hero() {
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4">
-          <ButtonLink to="/book" size="lg">
-            Book a slot
+          <ButtonLink to={`tel:${BUSINESS.phone}`} size="lg">
+            Call {formatPhone(BUSINESS.phone)}
           </ButtonLink>
           <ButtonLink
             to={whatsappLink(BUSINESS.phone, BUSINESS.whatsappGreeting)}
@@ -48,12 +48,6 @@ function Hero() {
           </ButtonLink>
         </div>
 
-        <p className="mt-8 text-sm text-smoke-dim">
-          Or call{' '}
-          <a href={`tel:${BUSINESS.phone}`} className="text-city-500 hover:text-city-600 transition-colors">
-            {formatPhone(BUSINESS.phone)}
-          </a>
-        </p>
       </div>
 
       {/* The trowel edge: a hard diagonal where the plaster meets the wall. */}
@@ -211,11 +205,15 @@ function FinalCta() {
           Free quotes, fixed prices, and a date in the diary you can rely on.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <ButtonLink to="/book" size="lg">
-            Book a slot
+          <ButtonLink to={`tel:${BUSINESS.phone}`} size="lg">
+            Call {formatPhone(BUSINESS.phone)}
           </ButtonLink>
-          <ButtonLink to={`tel:${BUSINESS.phone}`} size="lg" variant="secondary">
-            {formatPhone(BUSINESS.phone)}
+          <ButtonLink
+            to={whatsappLink(BUSINESS.phone, BUSINESS.whatsappGreeting)}
+            size="lg"
+            variant="secondary"
+          >
+            WhatsApp us
           </ButtonLink>
         </div>
       </div>

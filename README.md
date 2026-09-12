@@ -20,7 +20,7 @@ skim-city/
 └── firestore.rules · storage.rules · firestore.indexes.json · firebase.json
 ```
 
-**Public site** — `/`, `/services`, `/gallery`, `/book`, `/contact`, `/privacy`, `/terms`
+**Public site** — `/`, `/services`, `/gallery`, `/reviews`, `/contact`, `/privacy`, `/terms`
 **Customer-facing, no login** — `/quote/:token`, `/pay/success`, `/pay/cancel`
 **CRM (admin claim required)** — `/app` dashboard, diary, jobs, customers, quotes, invoices, payments, settings
 
@@ -74,8 +74,8 @@ npm test
 ```
 
 `tests/rules.test.mjs` asserts the two things that actually matter: the public
-can read the booking calendar and nothing else, and a signed-in user without the
-admin claim is no better off than a stranger.
+can read nothing at all, and a signed-in user without the admin claim is no
+better off than a stranger.
 
 ---
 
@@ -87,15 +87,16 @@ two repair slots (AM and PM).**
 - Booking a full day consumes both repair slots.
 - Booking one repair slot leaves the other half free but rules out a full day.
 - `dayBookings/{date}` is the authoritative record and the lock.
-- `availability/{date}` is a **public-read** projection of it — booleans only.
+- `availability/{date}` is a projection of it — booleans only, admin-read.
 
-The two are separate on purpose: Firestore rules cannot filter fields on read,
-so anything world-readable must contain no customer data at all.
+The two stay separate because the diary renders from the projection without
+needing job ids. Neither is world-readable: there is no public calendar.
 
-Concurrency is handled in `functions/src/booking/availability.ts`. `requestBooking`
-claims the slot inside a transaction, so two customers submitting the same slot
-at the same moment cannot both succeed — Firestore retries the loser, which then
-sees the slot taken. The `onJobWrite` trigger is a *reconciler*, not the guard:
+Concurrency is handled in `functions/src/booking/availability.ts`. `createJob`
+claims the days inside a transaction, so two jobs cannot take the same slot —
+Firestore retries the loser, which then sees the slot taken. Jobs are only
+created from the CRM, so this is now a safety net rather than a race the public
+can trigger. The `onJobWrite` trigger is a *reconciler*, not the guard:
 it rebuilds a day from the jobs collection whenever anything is cancelled,
 rescheduled or edited by hand.
 

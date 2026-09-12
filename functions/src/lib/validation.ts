@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { HttpsError } from 'firebase-functions/v2/https';
 
 /**
- * Schemas for anything crossing a trust boundary. The public booking and quote
+ * Schemas for anything crossing a trust boundary. The public quote and review
  * endpoints are unauthenticated, so nothing they send is taken on trust.
  */
 
@@ -30,18 +30,6 @@ export const ukPhoneSchema = z
     (value) => /^(\+44|0044|0)7\d{9}$/.test(value) || /^(\+44|0044|0)\d{9,10}$/.test(value),
     'Enter a valid UK phone number',
   );
-
-export const bookingRequestSchema = z.object({
-  name: z.string().trim().min(2, 'Please give your name').max(80),
-  phone: ukPhoneSchema,
-  email: z.string().trim().toLowerCase().email('Enter a valid email address').max(120),
-  type: z.enum(['full_day', 'repair']),
-  date: isoDateSchema,
-  slot: z.enum(['full', 'am', 'pm']),
-  address: addressSchema,
-  description: z.string().trim().min(10, 'Tell us a little about the job').max(2000),
-  photos: z.array(z.string().url()).max(6).optional(),
-});
 
 export const lineItemSchema = z.object({
   description: z.string().trim().min(1).max(200),

@@ -13,10 +13,10 @@ import { DEFAULT_BUSINESS_SETTINGS, type BusinessSettings } from '../../types/do
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /**
- * Business settings. These drive real behaviour — the booking calendar's
- * working days, the deposit percentage on every quote, and whether VAT appears
- * on invoices — so they live in Firestore rather than in code, and Chris can
- * change them without a redeploy.
+ * Business settings. These drive real behaviour — the diary's working days,
+ * the deposit percentage on every quote, and whether VAT appears on invoices —
+ * so they live in Firestore rather than in code, and Chris can change them
+ * without a redeploy.
  */
 export function SettingsPage() {
   const { data: stored, loading } = useDocument<BusinessSettings>('settings', 'business');
@@ -60,7 +60,7 @@ export function SettingsPage() {
 
   return (
     <>
-      <PageTitle title="Settings" subtitle="How the booking calendar, quotes and invoices behave" />
+      <PageTitle title="Settings" subtitle="How the diary, quotes and invoices behave" />
 
       {message && (
         <div className="mb-5">

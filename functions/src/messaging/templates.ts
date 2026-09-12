@@ -120,32 +120,6 @@ export function slotLabel(slot: JobSlot): string {
   return 'Afternoon (PM)';
 }
 
-export function bookingReceivedEmail(params: {
-  customerName: string;
-  date: string;
-  slot: JobSlot;
-  description: string;
-}): { subject: string; html: string } {
-  return {
-    subject: `We've got your request — ${formatLongDate(params.date)}`,
-    html: baseTemplate({
-      preheader: `Your ${slotLabel(params.slot).toLowerCase()} request for ${formatLongDate(params.date)} is with us.`,
-      heading: `Thanks ${escapeHtml(firstName(params.customerName))}, we've got your request`,
-      body: `
-        <p style="margin:0 0 16px 0;">We've pencilled you in and will be in touch shortly with a written quote.</p>
-        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px 0;font-size:15px;">
-          <tr><td style="padding:4px 16px 4px 0;color:${SMOKE};">Date</td><td><strong>${formatLongDate(params.date)}</strong></td></tr>
-          <tr><td style="padding:4px 16px 4px 0;color:${SMOKE};">Slot</td><td><strong>${slotLabel(params.slot)}</strong></td></tr>
-        </table>
-        <p style="margin:0 0 16px 0;padding:14px 16px;background:#E7EDF4;border-left:3px solid ${CITY_BLUE};">
-          <strong>This slot isn't confirmed yet.</strong> It's held for you while we price the work.
-          Once you accept the quote and pay the deposit, the day is yours.
-        </p>
-        <p style="margin:0;color:${SMOKE};font-size:14px;">What you told us: ${escapeHtml(params.description)}</p>`,
-    }),
-  };
-}
-
 export function quoteEmail(params: {
   customerName: string;
   quote: Quote;

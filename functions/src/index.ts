@@ -5,7 +5,7 @@
  * Region and secrets are declared per-function in lib/config.ts.
  */
 
-export { getAvailability, requestBooking, blockDay, onJobWrite } from './booking/functions';
+export { blockDay, onJobWrite } from './booking/functions';
 export { peekQuoteNumber, createQuote, sendQuote, getQuote, acceptQuote, declineQuote } from './quotes/functions';
 export { createInvoice, sendInvoice, voidInvoice } from './payments/invoices';
 export { stripeWebhook } from './payments/webhooks';

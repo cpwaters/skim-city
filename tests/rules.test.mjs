@@ -72,11 +72,11 @@ after(async () => {
 describe('unauthenticated visitors', () => {
   const db = () => testEnv.unauthenticatedContext().firestore();
 
-  it('can read the public booking calendar', async () => {
-    await assertSucceeds(getDoc(doc(db(), 'availability', '2026-09-01')));
+  it('cannot read the diary projection', async () => {
+    await assertFails(getDoc(doc(db(), 'availability', '2026-09-01')));
   });
 
-  it('cannot write to the calendar', async () => {
+  it('cannot write to the diary projection', async () => {
     await assertFails(setDoc(doc(db(), 'availability', '2026-09-01'), { blocked: true }));
   });
 
@@ -199,6 +199,10 @@ describe('admin', () => {
 
   it('cannot touch the invoice number counter', async () => {
     await assertFails(setDoc(doc(db(), 'counters', 'invoices'), { value: 500 }));
+  });
+
+  it('can read availability — the diary renders from it', async () => {
+    await assertSucceeds(getDoc(doc(db(), 'availability', '2026-09-01')));
   });
 
   it('cannot write availability directly', async () => {

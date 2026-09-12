@@ -2,8 +2,6 @@ import { httpsCallable, type HttpsCallableResult } from 'firebase/functions';
 import { functions } from './firebase';
 import type {
   Address,
-  Availability,
-  BookingRequestPayload,
   JobSlot,
   JobType,
   JobStatus,
@@ -25,20 +23,6 @@ function callable<Request, Response>(name: string) {
     return result.data;
   };
 }
-
-export const getAvailability = callable<
-  { month: string },
-  {
-    month: string;
-    days: Record<string, Availability>;
-    rules: { workingDays: number[]; earliestDate: string; latestDate: string };
-  }
->('getAvailability');
-
-export const requestBooking = callable<
-  BookingRequestPayload,
-  { jobId: string; date: string; slot: JobSlot }
->('requestBooking');
 
 export const blockDay = callable<
   { date: string; blocked: boolean; note?: string },
