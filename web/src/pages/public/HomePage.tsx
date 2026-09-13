@@ -11,7 +11,6 @@ export function HomePage() {
       <Hero />
       <TrustBar />
       <Services />
-      <HowItWorks />
       <ReviewsStrip />
       <Coverage />
       <FinalCta />
@@ -111,50 +110,6 @@ function Services() {
         >
           All services &amp; what they cost →
         </Link>
-      </div>
-    </section>
-  );
-}
-
-function HowItWorks() {
-  const steps = [
-    {
-      title: 'Pick your slot',
-      body: 'Choose a full day or a morning/afternoon repair slot from the live calendar. Takes a minute.',
-    },
-    {
-      title: 'Get a written quote',
-      body: "We'll confirm the details and email you a fixed price — no vague estimates, no surprises.",
-    },
-    {
-      title: 'Accept & pay a deposit',
-      body: 'Accept online and pay a deposit by card to lock the date in. The balance is due when the work is done.',
-    },
-    {
-      title: 'We turn up and crack on',
-      body: 'Sheets down, walls skimmed, mess cleared. You get a wall ready for paint.',
-    },
-  ];
-
-  return (
-    <section className="border-y border-noir-700 bg-noir-850 hatch">
-      <div className="mx-auto max-w-6xl px-5 py-20 sm:py-24">
-        <div className="max-w-2xl mb-12">
-          <p className="eyebrow mb-4">How it works</p>
-          <h2 className="display text-3xl sm:text-4xl text-bone">Four steps, no faff</h2>
-        </div>
-
-        <ol className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-          {steps.map((step, index) => (
-            <li key={step.title} className="relative">
-              <span className="display text-5xl text-noir-600 leading-none block mb-4">
-                {String(index + 1).padStart(2, '0')}
-              </span>
-              <h3 className="display text-base text-bone mb-2.5">{step.title}</h3>
-              <p className="text-sm text-smoke leading-relaxed">{step.body}</p>
-            </li>
-          ))}
-        </ol>
       </div>
     </section>
   );
