@@ -50,10 +50,12 @@ function Hero() {
 
       </div>
 
-      {/* The trowel edge: a hard diagonal where the plaster meets the wall. */}
+      {/* The trowel edge: a hard diagonal where the plaster meets the wall.
+          pointer-events-none because it sits after the content in the DOM and
+          overlaps the CTAs on narrow screens — without it, it swallows the taps. */}
       <div
         aria-hidden="true"
-        className="absolute -right-24 -bottom-24 size-96 rotate-12 border-t-2 border-l-2 border-city-700/25"
+        className="pointer-events-none absolute -right-24 -bottom-24 size-96 rotate-12 border-t-2 border-l-2 border-city-700/25"
       />
     </section>
   );
