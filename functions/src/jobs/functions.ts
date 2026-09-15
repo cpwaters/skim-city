@@ -178,17 +178,49 @@ export const updateJobStatus = onCall(
     if (!snap.exists) throw new HttpsError('not-found', 'Job not found.');
 
     const job = snap.data() as Job;
-    await ref.set({ status, updatedAt: nowIso() }, { merge: true });
+    const timestamp = nowIso();
+    await ref.set({ status, updatedAt: timestamp }, { merge: true });
 
     // Cancelling releases the slot via the onJobWrite reconciler; worth an
     // alert because it changes what the public calendar shows.
+    let quotesCancelled = 0;
     if (status === 'cancelled' && job.status !== 'cancelled') {
+      quotesCancelled = await cancelLiveQuotes(jobId, timestamp);
       await notifyTelegram(
         `<b>Job cancelled</b>\n\n${escapeHtml(job.date)} — the slot is back on the calendar.`,
         { template: 'job-cancelled', relatedTo: { jobId } },
       );
     }
 
-    return { jobId, status };
+    return { jobId, status, quotesCancelled };
   },
 );
+
+/**
+ * Cancelling a job cancels the paperwork that was still out with the customer.
+ *
+ * Only quotes that are still live — draft or sent — are touched. An accepted
+ * quote is the basis of an invoice and possibly a payment already taken, and a
+ * declined one already records the customer's own answer; rewriting either
+ * would falsify the record of what happened.
+ */
+async function cancelLiveQuotes(jobId: string, timestamp: string): Promise<number> {
+  // Filtered in code rather than with a second `where`: that would need a
+  // composite index deployed ahead of this function, and a job carries a
+  // handful of quotes at most.
+  const snap = await db.collection(COLLECTIONS.quotes).where('jobId', '==', jobId).get();
+  const live = snap.docs.filter((doc) => {
+    const status = doc.data().status as string;
+    return status === 'draft' || status === 'sent';
+  });
+
+  if (live.length === 0) return 0;
+
+  const batch = db.batch();
+  live.forEach((doc) => {
+    batch.set(doc.ref, { status: 'cancelled', cancelledAt: timestamp, updatedAt: timestamp }, { merge: true });
+  });
+  await batch.commit();
+
+  return live.length;
+}

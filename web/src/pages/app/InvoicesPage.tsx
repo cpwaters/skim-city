@@ -8,6 +8,7 @@ import { EmptyState, Spinner } from '../../components/ui/States';
 import { useCollection } from '../../hooks/useFirestore';
 import { money, moneyShort, shortDate } from '../../lib/format';
 import type { Customer, Invoice, InvoiceStatus } from '../../types/domain';
+import { instalmentSummary } from '../../lib/invoices';
 
 const FILTERS: Array<{ value: InvoiceStatus | 'all' | 'open'; label: string }> = [
   { value: 'open', label: 'Unpaid' },
@@ -92,7 +93,7 @@ export function InvoicesPage() {
                 >
                   <div className="w-20 shrink-0">
                     <p className="text-xs text-bone">{invoice.number}</p>
-                    <p className="text-[0.6rem] text-smoke-dim uppercase tracking-[0.1em]">{invoice.kind}</p>
+                    <p className="text-[0.6rem] text-smoke-dim uppercase tracking-[0.1em]">{instalmentSummary(invoice)}</p>
                   </div>
 
                   <div className="min-w-0 flex-1">

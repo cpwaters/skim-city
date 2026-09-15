@@ -12,6 +12,7 @@ import { formatMoney } from '../lib/money';
 import { notifyTelegram } from '../messaging/telegram';
 import { escapeHtml, slotLabel } from '../messaging/templates';
 import type { Customer, Invoice, Job } from '../domain';
+import { readInstalments } from '../payments/instalments';
 
 /**
  * 07:00 every morning: what's on tomorrow, and what's gone overdue.
@@ -62,6 +63,13 @@ export const dailyDigest = onSchedule(
  *
  * Only touches `sent` and `partially_paid` invoices, so a paid or voided
  * invoice can never be dragged back into "overdue" by a late run.
+ *
+ * An invoice is overdue when an instalment that has ACTUALLY BEEN BILLED is
+ * past its date — not merely when the invoice's own date has passed. A job
+ * whose deposit is paid and whose balance is not billed until the work is done
+ * is not late, and must not be chased as though it were. That test lives
+ * inside the array, which Firestore cannot query, so the open invoices are
+ * read and filtered here; there are only ever a handful.
  */
 export const sweepOverdueInvoices = onSchedule(
   {
@@ -76,15 +84,27 @@ export const sweepOverdueInvoices = onSchedule(
     const snap = await db
       .collection(COLLECTIONS.invoices)
       .where('status', 'in', ['sent', 'partially_paid'])
-      .where('dueDate', '<', today)
       .get();
 
     if (snap.empty) return;
 
+    const late = snap.docs.filter((doc) => {
+      const invoice = { id: doc.id, ...doc.data() } as Invoice;
+      return readInstalments(invoice).some(
+        (instalment) =>
+          instalment.status === 'sent' &&
+          instalment.amountPaidPence < instalment.amountPence &&
+          instalment.dueDate != null &&
+          instalment.dueDate < today,
+      );
+    });
+
+    if (late.length === 0) return;
+
     const batch = db.batch();
     let outstanding = 0;
 
-    for (const doc of snap.docs) {
+    for (const doc of late) {
       const invoice = doc.data() as Invoice;
       outstanding += invoice.totalPence - invoice.amountPaidPence;
       batch.set(doc.ref, { status: 'overdue', updatedAt: nowIso() }, { merge: true });
@@ -94,7 +114,7 @@ export const sweepOverdueInvoices = onSchedule(
 
     await notifyTelegram(
       [
-        `<b>⏰ ${snap.size} invoice${snap.size === 1 ? '' : 's'} overdue</b>`,
+        `<b>⏰ ${late.length} invoice${late.length === 1 ? '' : 's'} overdue</b>`,
         ``,
         `Total outstanding: ${formatMoney(outstanding)}`,
         ``,

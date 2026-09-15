@@ -92,6 +92,11 @@ export const createInvoice = callable<
   { invoiceId: string; number: string; paymentUrl: string | null; totalPence: number }
 >('createInvoice');
 
+export const billBalance = callable<
+  { jobId: string },
+  { invoiceId: string; number: string; paymentUrl: string | null; totalPence: number }
+>('billBalance');
+
 export const sendInvoice = callable<
   { invoiceId: string },
   { invoiceId: string; sentTo: string; totalPence: number; summary: string }
@@ -153,5 +158,5 @@ export const requestReview = callable<{ jobId: string }, { reviewId: string; sen
 
 export const updateJobStatus = callable<
   { jobId: string; status: JobStatus },
-  { jobId: string; status: JobStatus }
+  { jobId: string; status: JobStatus; quotesCancelled: number }
 >('updateJobStatus');

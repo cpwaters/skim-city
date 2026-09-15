@@ -99,6 +99,7 @@ export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
   accepted: 'Accepted',
   declined: 'Declined',
   expired: 'Expired',
+  cancelled: 'Cancelled',
 };
 
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {

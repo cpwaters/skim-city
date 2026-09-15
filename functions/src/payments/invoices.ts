@@ -14,10 +14,11 @@ import { getSettings } from '../lib/settings';
 import { assertAdmin } from '../lib/auth';
 import { lineItemSchema, parseOrThrow } from '../lib/validation';
 import { nextInvoiceNumber } from '../lib/counters';
+import { deriveInvoiceStatus, processorInvoiceIds, readInstalments } from './instalments';
 import { adapterFor } from './adapters';
 import { sendEmail } from '../messaging/email';
 import { invoiceEmail } from '../messaging/templates';
-import type { Customer, Invoice, Job, LineItem, Quote } from '../domain';
+import type { Customer, Instalment, Invoice, Job, LineItem, Quote } from '../domain';
 
 const PAYMENT_SECRETS = [
   STRIPE_SECRET_KEY,
@@ -137,19 +138,36 @@ export const createInvoice = onCall({ region: REGION, secrets: PAYMENT_SECRETS }
   const timestamp = nowIso();
   const invoiceRef = db.collection(COLLECTIONS.invoices).doc();
 
+  // One instalment: this call raises a single collection. The two-instalment
+  // shape (deposit then balance) is built once, on acceptance — see acceptQuote.
+  const instalments: Instalment[] = [
+    {
+      id: input.kind,
+      kind: input.kind,
+      amountPence: totals.totalPence,
+      amountPaidPence: 0,
+      status: 'pending',
+      processorInvoiceId: null,
+      paymentUrl: null,
+      dueDate,
+      sentAt: null,
+      paidAt: null,
+    },
+  ];
+
   const invoice: Omit<Invoice, 'id'> = {
     jobId: job.id,
     customerId: customer.id,
     quoteId: quote?.id ?? null,
+    quoteReference: quote?.reference ?? null,
     number,
-    kind: input.kind,
+    instalments,
+    processorInvoiceIds: [],
     lineItems,
     ...totals,
     amountPaidPence: 0,
     status: 'draft',
     processor: 'stripe',
-    processorInvoiceId: null,
-    paymentUrl: null,
     dueDate,
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -172,10 +190,19 @@ export const createInvoice = onCall({ region: REGION, secrets: PAYMENT_SECRETS }
       metadata: { invoiceId: invoiceRef.id, jobId: job.id },
     });
 
+    const billed: Instalment[] = instalments.map((instalment) => ({
+      ...instalment,
+      status: 'sent' as const,
+      processorInvoiceId: result.processorInvoiceId,
+      paymentUrl: result.paymentUrl,
+      sentAt: nowIso(),
+    }));
+
     await invoiceRef.set(
       {
-        processorInvoiceId: result.processorInvoiceId,
-        paymentUrl: result.paymentUrl,
+        instalments: billed,
+        processorInvoiceIds: processorInvoiceIds(billed),
+        status: 'sent',
         updatedAt: nowIso(),
       },
       { merge: true },
@@ -200,7 +227,12 @@ export const sendInvoice = onCall({ region: REGION, secrets: PAYMENT_SECRETS }, 
   if (!snap.exists) throw new HttpsError('not-found', 'Invoice not found.');
   const invoice = { id: snap.id, ...snap.data() } as Invoice;
 
-  if (!invoice.paymentUrl) {
+  // Whatever is currently billed and not yet settled is what gets emailed.
+  const due = readInstalments(invoice).find(
+    (instalment) => instalment.status === 'sent' && instalment.paymentUrl,
+  );
+
+  if (!due?.paymentUrl) {
     throw new HttpsError('failed-precondition', 'This invoice has no payment link yet.');
   }
 
@@ -212,6 +244,7 @@ export const sendInvoice = onCall({ region: REGION, secrets: PAYMENT_SECRETS }, 
   const email = invoiceEmail({
     customerName: customer.name,
     invoice,
+    instalment: due,
     vatRatePercent: settings.vatRatePercent,
     showVat: settings.vatRegistered && invoice.vatPence > 0,
   });
@@ -228,7 +261,12 @@ export const sendInvoice = onCall({ region: REGION, secrets: PAYMENT_SECRETS }, 
 
   await snap.ref.set({ status: 'sent', sentAt: nowIso(), updatedAt: nowIso() }, { merge: true });
 
-  return { invoiceId, sentTo: customer.email, totalPence: invoice.totalPence, summary: formatMoney(invoice.totalPence) };
+  return {
+    invoiceId,
+    sentTo: customer.email,
+    totalPence: due.amountPence,
+    summary: formatMoney(due.amountPence),
+  };
 });
 
 /** Admin: void an invoice at the processor and in our own records. */
@@ -247,10 +285,117 @@ export const voidInvoice = onCall({ region: REGION, secrets: PAYMENT_SECRETS }, 
     );
   }
 
-  if (invoice.processorInvoiceId) {
-    await adapterFor(invoice.processor).voidInvoice(invoice.processorInvoiceId);
+  // An invoice can have raised a payable object per instalment; all of them go.
+  const instalments = readInstalments(invoice);
+  const raised = instalments
+    .map((instalment) => instalment.processorInvoiceId)
+    .filter((id): id is string => Boolean(id));
+
+  for (const processorInvoiceId of raised) {
+    await adapterFor(invoice.processor).voidInvoice(processorInvoiceId);
   }
 
-  await snap.ref.set({ status: 'void', updatedAt: nowIso() }, { merge: true });
+  await snap.ref.set(
+    {
+      ...(invoice.instalments?.length
+        ? { instalments: instalments.map((instalment) => ({ ...instalment, status: 'void' as const })) }
+        : {}),
+      status: 'void',
+      updatedAt: nowIso(),
+    },
+    { merge: true },
+  );
   return { invoiceId, status: 'void' };
+});
+
+/**
+ * Admin: collect the balance once the work is done.
+ *
+ * Handles both shapes so the CRM never has to know which it is looking at. A
+ * job invoiced under the instalment model already has a `balance` instalment
+ * sitting pending on its one invoice — that gets its payment page raised here.
+ * A job invoiced before instalments existed has only a deposit invoice, so a
+ * separate balance invoice is raised for it exactly as it always was.
+ */
+export const billBalance = onCall({ region: REGION, secrets: PAYMENT_SECRETS }, async (request) => {
+  assertAdmin(request);
+  const { jobId } = parseOrThrow(z.object({ jobId: z.string().min(1) }), request.data);
+
+  const { job, customer, quote } = await loadJobContext(jobId);
+  const settings = await getSettings();
+
+  const invoiceSnap = await db
+    .collection(COLLECTIONS.invoices)
+    .where('jobId', '==', jobId)
+    .get();
+
+  const withBalance = invoiceSnap.docs
+    .map((doc) => ({ ref: doc.ref, invoice: { id: doc.id, ...doc.data() } as Invoice }))
+    .find(({ invoice }) =>
+      invoice.instalments?.some(
+        (instalment) => instalment.kind === 'balance' && instalment.status === 'pending',
+      ),
+    );
+
+  // Legacy job: no pending instalment to bill, so raise the separate invoice.
+  if (!withBalance) {
+    throw new HttpsError(
+      'failed-precondition',
+      'This job has no balance waiting to be billed. Raise a separate invoice instead.',
+    );
+  }
+
+  const { ref, invoice } = withBalance;
+  const instalments = readInstalments(invoice);
+  const balance = instalments.find((instalment) => instalment.kind === 'balance');
+  if (!balance) throw new HttpsError('failed-precondition', 'No balance instalment on this invoice.');
+
+  const dueDate = balance.dueDate ?? addDaysIso(todayIso(), settings.invoiceTermsDays);
+  const description = `Balance for ${job.description || 'plastering work'} — invoice ${invoice.number}${
+    quote ? ` (quote ${quote.reference})` : ''
+  }`;
+
+  const result = await adapterFor('stripe').createInvoice({
+    invoiceNumber: `${invoice.number}-BALANCE`,
+    customer: { name: customer.name, email: customer.email, phone: customer.phone },
+    lineItems: [{ description, quantity: 1, unitPricePence: balance.amountPence }],
+    // The balance is the remainder of an already-VAT-inclusive quote total, so
+    // VAT is not applied again — the invoice itself carries the breakdown.
+    vatPence: 0,
+    vatRatePercent: settings.vatRatePercent,
+    totalPence: balance.amountPence,
+    dueDate,
+    memo: description,
+    metadata: { invoiceId: invoice.id, jobId: job.id, instalmentId: 'balance' },
+  });
+
+  const billed: Instalment[] = instalments.map((instalment) =>
+    instalment.kind === 'balance'
+      ? {
+          ...instalment,
+          status: 'sent' as const,
+          processorInvoiceId: result.processorInvoiceId,
+          paymentUrl: result.paymentUrl,
+          dueDate,
+          sentAt: nowIso(),
+        }
+      : instalment,
+  );
+
+  await ref.set(
+    {
+      instalments: billed,
+      processorInvoiceIds: processorInvoiceIds(billed),
+      status: deriveInvoiceStatus(invoice, billed),
+      updatedAt: nowIso(),
+    },
+    { merge: true },
+  );
+
+  return {
+    invoiceId: invoice.id,
+    number: invoice.number,
+    paymentUrl: result.paymentUrl,
+    totalPence: balance.amountPence,
+  };
 });

@@ -8,6 +8,7 @@ import { StatTile } from '../../components/app/PageTitle';
 import { useCollection, useDocument } from '../../hooks/useFirestore';
 import { formatPhone, money, moneyShort, shortDate, slotLabel, whatsappLink } from '../../lib/format';
 import type { Customer, Invoice, Job } from '../../types/domain';
+import { instalmentSummary } from '../../lib/invoices';
 
 export function CustomerDetailPage() {
   const { customerId } = useParams<{ customerId: string }>();
@@ -112,7 +113,7 @@ export function CustomerDetailPage() {
                     <div>
                       <p className="text-sm text-bone">{invoice.number}</p>
                       <p className="text-xs text-smoke tabular-nums">
-                        {money(invoice.totalPence)} · {invoice.kind}
+                        {money(invoice.totalPence)} · {instalmentSummary(invoice)}
                       </p>
                     </div>
                     <InvoiceStatusBadge status={invoice.status} />

@@ -18,6 +18,7 @@ import { lineItemSchema, parseOrThrow } from '../lib/validation';
 import { generateToken } from '../lib/tokens';
 import { adapterFor } from '../payments/adapters';
 import { nextInvoiceNumber, nextQuoteNumber, peekNextQuoteNumber } from '../lib/counters';
+import { buildInstalments, processorInvoiceIds, readInstalments } from '../payments/instalments';
 import { sendEmail } from '../messaging/email';
 import { notifyTelegram } from '../messaging/telegram';
 import { escapeHtml, quoteEmail, slotLabel } from '../messaging/templates';
@@ -233,17 +234,23 @@ export const acceptQuote = onCall({ region: REGION, cors: true, secrets: QUOTE_S
   const job = { id: jobSnap.id, ...jobSnap.data() } as Job;
   const customer = { id: customerSnap.id, ...customerSnap.data() } as Customer;
 
-  // Accepting twice must not raise a second deposit invoice.
-  const existingDeposit = await db
+  // Accepting twice must not raise a second invoice. A job carries one invoice
+  // now, so any invoice against it means this has already been through.
+  const existingInvoice = await db
     .collection(COLLECTIONS.invoices)
     .where('jobId', '==', job.id)
-    .where('kind', '==', 'deposit')
     .limit(1)
     .get();
 
-  if (!existingDeposit.empty) {
-    const existing = existingDeposit.docs[0].data() as Invoice;
-    return { alreadyAccepted: true, paymentUrl: existing.paymentUrl, depositPence: existing.totalPence };
+  if (!existingInvoice.empty) {
+    const existing = { id: existingInvoice.docs[0].id, ...existingInvoice.docs[0].data() } as Invoice;
+    const dueNow = readInstalments(existing).find((instalment) => instalment.status === 'sent');
+    return {
+      alreadyAccepted: true,
+      paymentUrl: dueNow?.paymentUrl ?? existing.paymentUrl ?? null,
+      depositPence: dueNow?.amountPence ?? existing.totalPence,
+      invoiceNumber: existing.number,
+    };
   }
 
   const timestamp = nowIso();
@@ -255,53 +262,87 @@ export const acceptQuote = onCall({ region: REGION, cors: true, secrets: QUOTE_S
   const number = await nextInvoiceNumber();
   const dueDate = addDaysIso(todayIso(), 7);
   const invoiceRef = db.collection(COLLECTIONS.invoices).doc();
-  const lineItems = [
-    {
-      description: `Deposit to confirm booking — quote ${quote.reference}`,
-      quantity: 1,
-      unitPricePence: quote.depositPence,
-    },
-  ];
+
+  // One invoice for the whole job, billed at the agreed figure. The deposit is
+  // collected now and the balance when the work is done, but both are
+  // instalments of this one document — so the job has a single number and a
+  // single outstanding figure however the money arrives.
+  const instalments = buildInstalments({
+    totalPence: quote.totalPence,
+    depositPence: quote.depositPence,
+    dueDate,
+  });
 
   const invoice: Omit<Invoice, 'id'> = {
     jobId: job.id,
     customerId: customer.id,
     quoteId: quote.id,
+    quoteReference: quote.reference,
     number,
-    kind: 'deposit',
-    lineItems,
-    subtotalPence: quote.depositPence,
-    vatPence: 0,
-    totalPence: quote.depositPence,
+    instalments,
+    processorInvoiceIds: [],
+    lineItems: quote.lineItems,
+    subtotalPence: quote.subtotalPence,
+    vatPence: quote.vatPence,
+    totalPence: quote.totalPence,
     amountPaidPence: 0,
-    status: 'sent',
+    status: 'draft',
     processor: 'stripe',
-    processorInvoiceId: null,
-    paymentUrl: null,
     dueDate,
-    sentAt: timestamp,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
 
-  await invoiceRef.set(invoice);
+  await Promise.all([
+    invoiceRef.set(invoice),
+    quoteRef.set({ invoiceNumber: number, updatedAt: nowIso() }, { merge: true }),
+  ]);
 
+  const dueNow = instalments[0];
   let paymentUrl: string | null = null;
   try {
     const result = await adapterFor('stripe').createInvoice({
-      invoiceNumber: number,
+      invoiceNumber: dueNow.kind === 'full' ? number : `${number}-${dueNow.kind.toUpperCase()}`,
       customer: { name: customer.name, email: customer.email, phone: customer.phone },
-      lineItems,
+      lineItems: [
+        {
+          description:
+            dueNow.kind === 'deposit'
+              ? `Deposit to confirm booking — invoice ${number} (quote ${quote.reference})`
+              : `${job.description || 'Plastering work'} — invoice ${number} (quote ${quote.reference})`,
+          quantity: 1,
+          unitPricePence: dueNow.amountPence,
+        },
+      ],
       vatPence: 0,
       vatRatePercent: settings.vatRatePercent,
-      totalPence: quote.depositPence,
-      dueDate,
-      memo: `Deposit for ${formatLongDate(job.date)} — ${slotLabel(job.slot)}`,
-      metadata: { invoiceId: invoiceRef.id, jobId: job.id },
+      totalPence: dueNow.amountPence,
+      dueDate: dueNow.dueDate ?? dueDate,
+      memo: `${dueNow.kind === 'deposit' ? 'Deposit' : 'Payment'} for ${formatLongDate(job.date)} — ${slotLabel(job.slot)}`,
+      metadata: { invoiceId: invoiceRef.id, jobId: job.id, instalmentId: dueNow.id },
     });
     paymentUrl = result.paymentUrl;
+
+    const billed = instalments.map((instalment) =>
+      instalment.id === dueNow.id
+        ? {
+            ...instalment,
+            status: 'sent' as const,
+            processorInvoiceId: result.processorInvoiceId,
+            paymentUrl,
+            sentAt: nowIso(),
+          }
+        : instalment,
+    );
+
     await invoiceRef.set(
-      { processorInvoiceId: result.processorInvoiceId, paymentUrl, updatedAt: nowIso() },
+      {
+        instalments: billed,
+        processorInvoiceIds: processorInvoiceIds(billed),
+        status: 'sent',
+        sentAt: nowIso(),
+        updatedAt: nowIso(),
+      },
       { merge: true },
     );
   } catch (error) {
@@ -321,7 +362,9 @@ export const acceptQuote = onCall({ region: REGION, cors: true, secrets: QUOTE_S
       ``,
       `${escapeHtml(customer.name)} accepted ${escapeHtml(quote.reference)} — ${formatMoney(quote.totalPence)}`,
       `${formatLongDate(job.date)} — ${slotLabel(job.slot)}`,
-      `Deposit of ${formatMoney(quote.depositPence)} invoiced (${number}).`,
+      dueNow.kind === 'deposit'
+        ? `Deposit of ${formatMoney(dueNow.amountPence)} invoiced (${number}), balance ${formatMoney(quote.totalPence - dueNow.amountPence)} to follow.`
+        : `Invoiced in full (${number}).`,
     ].join('\n'),
     { template: 'quote-accepted', relatedTo: { quoteId: quote.id, jobId: job.id, invoiceId: invoiceRef.id } },
   );
