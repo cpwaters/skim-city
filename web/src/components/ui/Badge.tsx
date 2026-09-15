@@ -41,6 +41,7 @@ const QUOTE_TONES: Record<QuoteStatus, Tone> = {
   accepted: 'green',
   declined: 'maroon',
   expired: 'maroon',
+  cancelled: 'neutral',
 };
 
 export function QuoteStatusBadge({ status }: { status: QuoteStatus }) {

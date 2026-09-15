@@ -7,7 +7,7 @@
 
 export { blockDay, onJobWrite } from './booking/functions';
 export { peekQuoteNumber, createQuote, sendQuote, getQuote, acceptQuote, declineQuote } from './quotes/functions';
-export { createInvoice, sendInvoice, voidInvoice } from './payments/invoices';
+export { createInvoice, billBalance, sendInvoice, voidInvoice } from './payments/invoices';
 export { stripeWebhook } from './payments/webhooks';
 export { createJob, markJobComplete, updateJobStatus } from './jobs/functions';
 export { getGallery, deleteGalleryItem } from './gallery/functions';

@@ -1,4 +1,4 @@
-import type { LineItem, Processor } from '../domain';
+import type { InvoiceKind, LineItem, Processor } from '../domain';
 
 /**
  * One interface, one adapter. Stripe is the only processor, but everything
@@ -23,8 +23,11 @@ export interface CreateInvoiceInput {
   totalPence: number;
   dueDate: string;
   memo?: string;
-  /** Our Firestore ids, echoed back on webhooks. */
-  metadata: { invoiceId: string; jobId: string };
+  /**
+   * Our Firestore ids, echoed back on webhooks. `instalmentId` says which
+   * collection of the invoice this payable object is for.
+   */
+  metadata: { invoiceId: string; jobId: string; instalmentId?: InvoiceKind };
 }
 
 export interface CreateInvoiceResult {

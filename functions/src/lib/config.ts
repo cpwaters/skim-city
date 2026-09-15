@@ -20,7 +20,7 @@ export const TELEGRAM_CHAT_ID = defineSecret('TELEGRAM_CHAT_ID');
 
 /** Non-secret config. Set in .env / functions config or left at the default. */
 export const SITE_URL = defineString('SITE_URL', { default: 'https://skimcity.co.uk' });
-export const FROM_EMAIL = defineString('FROM_EMAIL', { default: 'Skim City <chris@skimcity.co.uk>' });
+export const FROM_EMAIL = defineString('FROM_EMAIL', { default: 'Skim City <chris@quote.skimcity.co.uk>' });
 
 export const BUSINESS_PHONE = '07464848570';
 export const BUSINESS_EMAIL = 'chris@skimcity.co.uk';

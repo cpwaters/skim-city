@@ -10,7 +10,15 @@ import { JobPhotos } from '../../components/app/JobPhotos';
 import { useCollection, useDocument } from '../../hooks/useFirestore';
 import { db } from '../../lib/firebase-crm';
 import { uploadPhotoDrafts, releaseDraft, type PhotoDraft } from '../../lib/photos';
-import { createInvoice, markJobComplete, requestReview, sendInvoice, updateJobStatus } from '../../lib/callables';
+import {
+  billBalance,
+  createInvoice,
+  markJobComplete,
+  requestReview,
+  sendInvoice,
+  updateJobStatus,
+} from '../../lib/callables';
+import { dueInstalment, instalmentSummary, pendingBalance, readInstalments } from '../../lib/invoices';
 import {
   formatPhone,
   longDate,
@@ -99,7 +107,12 @@ export function JobDetailPage() {
   const collected = payments.reduce((sum, payment) => sum + payment.amountPence, 0);
   const jobValue = job.valuePence ?? acceptedQuote?.totalPence ?? 0;
   const outstanding = Math.max(0, jobValue - collected);
+  // A balance sitting unbilled on the job's one invoice. Jobs invoiced before
+  // instalments existed have no such instalment — for those the balance is
+  // still a separate invoice, raised the old way.
+  const balanceInstalment = invoices.find((invoice) => pendingBalance(invoice));
   const hasBalanceInvoice = invoices.some((invoice) => invoice.kind === 'balance');
+  const canBillBalance = Boolean(balanceInstalment) || (!hasBalanceInvoice && invoices.length > 0);
 
   async function run(label: string, action: () => Promise<string | void>) {
     setBusy(label);
@@ -315,18 +328,38 @@ export function JobDetailPage() {
                     <div className="flex items-center justify-between gap-3 mb-1.5">
                       <span className="text-sm text-bone">
                         {invoice.number}
-                        <span className="text-smoke-dim text-xs ml-2">{invoice.kind}</span>
+                        <span className="text-smoke-dim text-xs ml-2">{instalmentSummary(invoice)}</span>
                       </span>
                       <InvoiceStatusBadge status={invoice.status} />
                     </div>
                     <p className="text-xs text-smoke">
-                      {money(invoice.totalPence)} · Stripe ·
-                      due {shortDate(invoice.dueDate)}
+                      {money(invoice.totalPence)} · Stripe
+                      {invoice.quoteReference && <> · from {invoice.quoteReference}</>}
+                      {invoice.amountPaidPence > 0 && invoice.amountPaidPence < invoice.totalPence && (
+                        <> · {money(invoice.amountPaidPence)} paid</>
+                      )}
                     </p>
+                    <ul className="mt-1.5 space-y-0.5">
+                      {readInstalments(invoice).map((instalment) => (
+                        <li key={instalment.id} className="text-xs text-smoke-dim flex gap-2">
+                          <span className="uppercase tracking-[0.08em] w-16 shrink-0">{instalment.kind}</span>
+                          <span className="tabular-nums">{money(instalment.amountPence)}</span>
+                          <span>
+                            {instalment.status === 'paid'
+                              ? '· paid'
+                              : instalment.status === 'pending'
+                                ? '· not billed yet'
+                                : instalment.dueDate
+                                  ? `· due ${shortDate(instalment.dueDate)}`
+                                  : ''}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                     <div className="flex flex-wrap gap-3 mt-2">
-                      {invoice.paymentUrl && (
+                      {dueInstalment(invoice)?.paymentUrl && (
                         <a
-                          href={invoice.paymentUrl}
+                          href={dueInstalment(invoice)!.paymentUrl!}
                           target="_blank"
                           rel="noreferrer noopener"
                           className="text-xs text-city-500 hover:text-city-600"
@@ -450,23 +483,25 @@ export function JobDetailPage() {
                 </Button>
               )}
 
-              {job.status === 'completed' && acceptedQuote && !hasBalanceInvoice && outstanding > 0 && (
-                <>
-                  <Button
-                    full
-                    size="sm"
-                    loading={busy === 'balance'}
-                    onClick={() =>
-                      void run('balance', async () => {
-                        const invoice = await createInvoice({ jobId: job.id, kind: 'balance' });
-                        await sendInvoice({ invoiceId: invoice.invoiceId });
-                        return `Balance invoice ${invoice.number} for ${money(invoice.totalPence)} sent.`;
-                      })
-                    }
-                  >
-                    Invoice {money(outstanding)} balance
-                  </Button>
-                </>
+              {job.status === 'completed' && acceptedQuote && canBillBalance && outstanding > 0 && (
+                <Button
+                  full
+                  size="sm"
+                  loading={busy === 'balance'}
+                  onClick={() =>
+                    void run('balance', async () => {
+                      // Instalment-shaped invoices already carry the balance;
+                      // legacy ones need a separate invoice raising.
+                      const result = balanceInstalment
+                        ? await billBalance({ jobId: job.id })
+                        : await createInvoice({ jobId: job.id, kind: 'balance' });
+                      await sendInvoice({ invoiceId: result.invoiceId });
+                      return `Balance of ${money(result.totalPence)} billed on ${result.number} and emailed.`;
+                    })
+                  }
+                >
+                  Invoice {money(outstanding)} balance
+                </Button>
               )}
 
               {job.status === 'completed' && (
@@ -493,10 +528,17 @@ export function JobDetailPage() {
                   variant="ghost"
                   loading={busy === 'cancel'}
                   onClick={() => {
-                    if (!window.confirm('Cancel this job? The slot goes back on the public calendar.')) return;
+                    if (
+                      !window.confirm(
+                        'Cancel this job? The slot goes back on the public calendar and any quote still out with the customer is cancelled too.',
+                      )
+                    )
+                      return;
                     void run('cancel', async () => {
-                      await updateJobStatus({ jobId: job.id, status: 'cancelled' });
-                      return 'Job cancelled and the slot released.';
+                      const { quotesCancelled } = await updateJobStatus({ jobId: job.id, status: 'cancelled' });
+                      return quotesCancelled > 0
+                        ? `Job cancelled, the slot released and ${quotesCancelled} quote${quotesCancelled === 1 ? '' : 's'} cancelled.`
+                        : 'Job cancelled and the slot released.';
                     });
                   }}
                 >

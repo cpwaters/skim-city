@@ -23,7 +23,9 @@ export type JobStatus =
   | 'completed'
   | 'cancelled';
 
-export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'declined' | 'expired';
+export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'declined' | 'expired' | 'cancelled';
+// `declined` is the customer's decision; `cancelled` is Chris's. Keeping them
+// apart means the pipeline reports why work was lost, not just that it was.
 
 export type InvoiceKind = 'deposit' | 'balance' | 'full';
 
@@ -116,6 +118,8 @@ export interface Quote {
   customerId: string;
   /** Sequential, human-facing: `Q-0001`. Allocated transactionally on save. */
   reference: string;
+  /** Set once accepted, so a quote points at its invoice as well as the reverse. */
+  invoiceNumber?: string | null;
   lineItems: LineItem[];
   subtotalPence: number;
   vatPence: number;
@@ -129,8 +133,35 @@ export interface Quote {
   sentAt?: string | null;
   acceptedAt?: string | null;
   declinedAt?: string | null;
+  /** Set when Chris cancels the job this quote belongs to. */
+  cancelledAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * One collection against an invoice.
+ *
+ * A job is billed once, for one agreed figure, but the money can arrive in two
+ * goes: a deposit that confirms the slot and a balance due on completion. Each
+ * instalment carries its own hosted payment page because the processor needs a
+ * distinct payable object per collection — but they are parts of one invoice,
+ * not invoices in their own right, and only the invoice carries a number.
+ */
+export interface Instalment {
+  /** Stable within the invoice: `deposit`, `balance` or `full`. */
+  id: InvoiceKind;
+  kind: InvoiceKind;
+  amountPence: number;
+  amountPaidPence: number;
+  /** `pending` until its payment page exists — the balance is not billed until the work is done. */
+  status: 'pending' | 'sent' | 'paid' | 'void';
+  processorInvoiceId?: string | null;
+  /** Hosted payment page provided by Stripe. */
+  paymentUrl?: string | null;
+  dueDate?: string | null;
+  sentAt?: string | null;
+  paidAt?: string | null;
 }
 
 export interface Invoice {
@@ -138,9 +169,33 @@ export interface Invoice {
   jobId: string;
   customerId: string;
   quoteId?: string | null;
+  /**
+   * The quote this was raised from, e.g. `Q-0042`.
+   *
+   * Invoice numbers run in their own unbroken sequence — a quote that is never
+   * accepted must not leave a hole in it — so traceability is carried by this
+   * cross-reference rather than by sharing digits.
+   */
+  quoteReference?: string | null;
   /** Sequential, human-facing: `SC-0001`. Allocated transactionally. */
   number: string;
-  kind: InvoiceKind;
+  /**
+   * LEGACY. Invoices raised before instalments existed are one-per-collection
+   * and carry the kind here. New invoices bill the whole job and leave it
+   * unset; read `instalments` instead.
+   */
+  kind?: InvoiceKind;
+  /**
+   * How the total is collected: one entry when paid in full, two when there is
+   * a deposit. Absent on legacy invoices.
+   */
+  instalments?: Instalment[];
+  /**
+   * Every processor invoice id across the instalments, flattened so an
+   * incoming webhook can find its invoice. Firestore cannot query a field
+   * inside an array of maps, so the ids are mirrored here for array-contains.
+   */
+  processorInvoiceIds?: string[];
   lineItems: LineItem[];
   subtotalPence: number;
   vatPence: number;
@@ -148,8 +203,8 @@ export interface Invoice {
   amountPaidPence: number;
   status: InvoiceStatus;
   processor: Processor;
+  /** LEGACY, single-collection invoices only. New ones carry these per instalment. */
   processorInvoiceId?: string | null;
-  /** Hosted payment page provided by Stripe. */
   paymentUrl?: string | null;
   dueDate: string;
   sentAt?: string | null;
@@ -161,6 +216,8 @@ export interface Invoice {
 export interface Payment {
   id: string;
   invoiceId: string;
+  /** Which instalment this settled. Absent on payments against legacy invoices. */
+  instalmentId?: InvoiceKind | null;
   jobId: string;
   processor: Processor;
   /** Processor's own payment id. Used as the doc id so replays are no-ops. */
