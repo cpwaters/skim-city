@@ -58,6 +58,12 @@
   --color-maroon-400: #a32e3e;
   --color-maroon-900: #3d1017;
 
+  /* Work won. Used for a booked day in the diary and for paid and accepted
+     badges — the only green on the site, so it always means the same thing. */
+  --color-moss-900: #0f2b1f;
+  --color-moss-700: #1f5a41;
+  --color-moss-500: #5fd39a;
+
   --color-bone: #f2f4f7;
   --color-smoke: #98a1ae;
   /* Lifted to clear 4.5:1 on both the page and a card — it was under AA
