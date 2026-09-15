@@ -7,6 +7,7 @@ import {
   type CreateInvoiceInput,
   type CreateInvoiceResult,
   type PaymentAdapter,
+  type RefundResult,
   type WebhookVerification,
 } from './processor';
 
@@ -81,6 +82,25 @@ export const stripeAdapter: PaymentAdapter = {
     };
   },
 
+  async refundPayment({ processorPaymentId, amountPence, reason }): Promise<RefundResult> {
+    const stripe = client();
+    // Stripe takes either a payment intent or a charge; ours are invoice-backed
+    // so a payment intent is what we hold.
+    const refund = await stripe.refunds.create({
+      ...(processorPaymentId.startsWith('ch_')
+        ? { charge: processorPaymentId }
+        : { payment_intent: processorPaymentId }),
+      amount: amountPence,
+      ...(reason ? { metadata: { reason } } : {}),
+    });
+
+    return {
+      processorRefundId: refund.id,
+      status:
+        refund.status === 'succeeded' ? 'succeeded' : refund.status === 'failed' ? 'failed' : 'pending',
+    };
+  },
+
   async voidInvoice(processorInvoiceId: string): Promise<void> {
     const stripe = client();
     await stripe.invoices.voidInvoice(processorInvoiceId);
@@ -107,6 +127,75 @@ export const stripeAdapter: PaymentAdapter = {
       );
     }
 
+    const receivedAt = new Date((event.created ?? Math.floor(Date.now() / 1000)) * 1000).toISOString();
+
+    // Money given back, in whole or in part.
+    if (event.type === 'charge.refunded') {
+      const charge = event.data.object as Stripe.Charge;
+      const latest = charge.refunds?.data?.[0];
+      return {
+        event: {
+          kind: 'refund',
+          eventId: event.id,
+          processor: 'stripe',
+          // Charge carries no invoice link in this API version, so a refund is
+          // matched to its payment by the charge/payment-intent id we stored
+          // when the payment landed.
+          processorInvoiceId: null,
+          processorChargeId: charge.payment_intent ? String(charge.payment_intent) : charge.id,
+          processorPaymentId: charge.id,
+          processorRefundId: latest?.id ?? null,
+          // Cumulative for the charge, so replays and successive partial
+          // refunds land correctly without tracking deltas here.
+          cumulativeRefundedPence: charge.amount_refunded ?? 0,
+          currency: (charge.currency ?? 'gbp').toUpperCase(),
+          receivedAt,
+        },
+      };
+    }
+
+    if (event.type === 'invoice.payment_failed') {
+      const failed = event.data.object as Stripe.Invoice;
+      if (!failed.id) return { event: null };
+      return {
+        event: {
+          kind: 'payment_failed',
+          eventId: event.id,
+          processor: 'stripe',
+          processorInvoiceId: failed.id,
+          amountPence: failed.amount_due ?? 0,
+          reason: failed.last_finalization_error?.message ?? undefined,
+          receivedAt,
+        },
+      };
+    }
+
+    if (event.type === 'charge.dispute.created') {
+      const dispute = event.data.object as Stripe.Dispute;
+      return {
+        event: {
+          kind: 'dispute',
+          eventId: event.id,
+          processor: 'stripe',
+          processorPaymentId: typeof dispute.charge === 'string' ? dispute.charge : '',
+          amountPence: dispute.amount ?? 0,
+          reason: dispute.reason ?? undefined,
+          dueBy: dispute.evidence_details?.due_by
+            ? new Date(dispute.evidence_details.due_by * 1000).toISOString()
+            : null,
+          receivedAt,
+        },
+      };
+    }
+
+    if (event.type === 'invoice.voided') {
+      const voided = event.data.object as Stripe.Invoice;
+      if (!voided.id) return { event: null };
+      return {
+        event: { kind: 'voided', eventId: event.id, processor: 'stripe', processorInvoiceId: voided.id, receivedAt },
+      };
+    }
+
     if (event.type !== 'invoice.paid' && event.type !== 'invoice.payment_succeeded') {
       return { event: null };
     }
@@ -116,8 +205,10 @@ export const stripeAdapter: PaymentAdapter = {
 
     return {
       event: {
+        kind: 'payment',
         eventId: event.id,
         processor: 'stripe',
+        processorChargeId: await chargeIdForInvoice(stripe, invoice.id),
         processorInvoiceId: invoice.id,
         processorPaymentId: event.id,
         // amount_paid is cumulative for the invoice, not per-payment.
@@ -129,3 +220,33 @@ export const stripeAdapter: PaymentAdapter = {
     };
   },
 };
+
+/**
+ * The charge or payment-intent behind a paid invoice.
+ *
+ * Needed because a refund is issued against the charge, not the invoice, and
+ * the webhook's own event id joins to nothing on Stripe's side. One extra call
+ * per payment — payments are rare, and without it no refund can be raised at
+ * all. A failure here is not worth losing the payment over, so it degrades to
+ * null and the refund path reports the id as missing.
+ */
+async function chargeIdForInvoice(stripe: Stripe, invoiceId: string): Promise<string | null> {
+  try {
+    const payments = await stripe.invoicePayments.list({ invoice: invoiceId, limit: 1 });
+    const payment = payments.data[0]?.payment;
+    if (!payment) return null;
+
+    if (payment.payment_intent) {
+      return typeof payment.payment_intent === 'string'
+        ? payment.payment_intent
+        : payment.payment_intent.id;
+    }
+    if (payment.charge) {
+      return typeof payment.charge === 'string' ? payment.charge : payment.charge.id;
+    }
+    return null;
+  } catch (error) {
+    console.error(`Could not resolve the charge behind invoice ${invoiceId}`, error);
+    return null;
+  }
+}

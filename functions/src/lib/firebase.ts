@@ -22,6 +22,7 @@ export const COLLECTIONS = {
   settings: 'settings',
   counters: 'counters',
   messageLog: 'messageLog',
+  refundRequests: 'refundRequests',
   galleryItems: 'galleryItems',
   reviews: 'reviews',
 } as const;

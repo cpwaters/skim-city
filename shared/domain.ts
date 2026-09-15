@@ -220,14 +220,54 @@ export interface Payment {
   instalmentId?: InvoiceKind | null;
   jobId: string;
   processor: Processor;
-  /** Processor's own payment id. Used as the doc id so replays are no-ops. */
+  /** Processor's own event id. Used as the doc id so replays are no-ops. */
   processorPaymentId: string;
+  /**
+   * The processor's charge or payment-intent id — what a refund is issued
+   * against, and what a refund webhook names. Captured at payment time because
+   * the event id above cannot be joined to anything on the processor's side.
+   */
+  processorChargeId?: string | null;
   amountPence: number;
   currency: 'GBP';
   status: PaymentStatus;
+  /** How much of `amountPence` has been given back. Partial refunds are allowed. */
+  refundedPence?: number;
+  refundedAt?: string | null;
   method?: string;
   receivedAt: string;
   createdAt: string;
+}
+
+export type RefundRequestStatus = 'open' | 'settled' | 'cancelled';
+
+/**
+ * Money owed back to a customer, raised when a quote is cancelled after they
+ * have paid.
+ *
+ * A request, not a refund: cancelling a quote must never move money on its
+ * own. It records what is owed, alerts Chris, and waits to be approved in the
+ * CRM. The refund itself is only real once the processor says so — the
+ * `charge.refunded` webhook is what settles this, not the button press.
+ */
+export interface RefundRequest {
+  id: string;
+  jobId: string;
+  invoiceId: string;
+  quoteId?: string | null;
+  customerId: string;
+  /** The payment being given back, so the processor knows what to reverse. */
+  paymentId: string;
+  processorPaymentId: string;
+  amountPence: number;
+  status: RefundRequestStatus;
+  reason: string;
+  /** Set once the processor accepts the refund. */
+  processorRefundId?: string | null;
+  requestedAt: string;
+  settledAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
