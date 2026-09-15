@@ -81,6 +81,25 @@ export const acceptQuote = callable<
 
 export const declineQuote = callable<{ token: string; reason?: string }, { declined: boolean }>('declineQuote');
 
+export const cancelQuote = callable<
+  { quoteId: string; reason?: string },
+  { quoteId: string; status: string; refundsRaised: number }
+>('cancelQuote');
+
+export const deleteQuote = callable<{ quoteId: string }, { quoteId: string; deleted: boolean }>(
+  'deleteQuote',
+);
+
+export const approveRefund = callable<
+  { refundRequestId: string },
+  { refundRequestId: string; amountPence: number; status: string }
+>('approveRefund');
+
+export const dismissRefund = callable<
+  { refundRequestId: string },
+  { refundRequestId: string; status: string }
+>('dismissRefund');
+
 export const createInvoice = callable<
   {
     jobId: string;
@@ -158,5 +177,5 @@ export const requestReview = callable<{ jobId: string }, { reviewId: string; sen
 
 export const updateJobStatus = callable<
   { jobId: string; status: JobStatus },
-  { jobId: string; status: JobStatus; quotesCancelled: number }
+  { jobId: string; status: JobStatus; quotesCancelled: number; refundsRaised: number }
 >('updateJobStatus');

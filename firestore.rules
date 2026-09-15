@@ -52,6 +52,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Like payments, a record of money owed back. Admins read it in the CRM;
+    // only Functions may write, so approving a refund has to go through the
+    // callable that actually asks the processor for it.
+    match /refundRequests/{refundRequestId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     match /dayBookings/{date} {
       allow read: if isAdmin();
       allow write: if false;
