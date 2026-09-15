@@ -221,6 +221,20 @@ function DayCell({
 }) {
   const isWeekend = dayOfWeek(date) === 0;
   const hasFullDay = jobs.some((job) => job.slot === 'full');
+  const booked = jobs.length > 0;
+
+  // Booked outranks blocked: the two together are contradictory and rare, and
+  // when they do collide the job is the fact worth seeing. Selection outranks
+  // everything, or you cannot tell what you have tapped.
+  const tone = selected
+    ? 'bg-city-500 text-noir-900'
+    : booked
+      ? 'bg-moss-900 text-bone hover:bg-moss-700'
+      : blocked
+        ? 'bg-maroon-900/40 text-smoke-dim'
+        : isWeekend
+          ? 'bg-noir-900 text-smoke-dim'
+          : 'bg-noir-850 text-bone hover:bg-noir-700';
 
   return (
     <button
@@ -230,7 +244,7 @@ function DayCell({
       aria-label={`${date}, ${jobs.length} job${jobs.length === 1 ? '' : 's'}${blocked ? ', blocked' : ''}`}
       className={[
         'aspect-square p-1 rounded-[2px] flex flex-col items-center justify-start transition-colors cursor-pointer',
-        selected ? 'bg-city-500 text-noir-900' : blocked ? 'bg-maroon-900/40 text-smoke-dim' : isWeekend ? 'bg-noir-900 text-smoke-dim' : 'bg-noir-850 text-bone hover:bg-noir-700',
+        tone,
       ].join(' ')}
     >
       <span className={`text-xs leading-tight mt-1 ${isToday && !selected ? 'text-city-500 font-semibold' : ''}`}>
@@ -239,12 +253,12 @@ function DayCell({
 
       <span className="flex gap-0.5 mt-1" aria-hidden="true">
         {hasFullDay ? (
-          <span className={`h-1 w-5 rounded-full ${selected ? 'bg-noir-900' : 'bg-city-500'}`} />
+          <span className={`h-1 w-5 rounded-full ${selected ? 'bg-noir-900' : 'bg-moss-500'}`} />
         ) : (
           jobs.map((job) => (
             <span
               key={job.id}
-              className={`h-1 w-2 rounded-full ${selected ? 'bg-noir-900' : 'bg-city-700'}`}
+              className={`h-1 w-2 rounded-full ${selected ? 'bg-noir-900' : 'bg-moss-500/70'}`}
             />
           ))
         )}

@@ -8,7 +8,7 @@ const TONES: Record<Tone, string> = {
   neutral: 'bg-noir-700 text-smoke border-noir-600',
   blue: 'bg-city-900/60 text-city-500 border-city-700',
   maroon: 'bg-maroon-900/70 text-[#e08a97] border-maroon-500',
-  green: 'bg-[#0f2b1f] text-[#5fd39a] border-[#1f5a41]',
+  green: 'bg-moss-900 text-moss-500 border-moss-700',
   amber: 'bg-[#33270c] text-[#e0b055] border-[#6b5320]',
 };
 
