@@ -17,6 +17,7 @@ import { PaymentResultPage } from './pages/public/PaymentResultPage';
 import { PrivacyPage } from './pages/public/PrivacyPage';
 import { TermsPage } from './pages/public/TermsPage';
 import { NotFoundPage } from './pages/public/NotFoundPage';
+import { BusinessProvider } from './hooks/useBusiness';
 
 /**
  * The whole CRM — auth provider, Firestore, every admin screen — sits behind
@@ -30,7 +31,7 @@ export function App() {
     <>
       <ScrollToTop />
       <Routes>
-        <Route element={<PublicLayout />}>
+        <Route element={<BusinessProvider><PublicLayout /></BusinessProvider>}>
           <Route index element={<HomePage />} />
           <Route path="services" element={<ServicesPage />} />
           <Route path="gallery" element={<GalleryPage />} />

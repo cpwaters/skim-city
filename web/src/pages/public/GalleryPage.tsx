@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { PageHeader } from '../../components/public/PageHeader';
 import { BeforeAfter } from '../../components/public/BeforeAfter';
 import { ButtonLink } from '../../components/ui/Button';
-import { BUSINESS } from '../../lib/business';
 import { formatPhone } from '../../lib/format';
 import { Spinner } from '../../components/ui/States';
 import { getGallery, type PublicGalleryItem } from '../../lib/callables';
 import { PLACEHOLDER_GALLERY } from '../../lib/gallery';
+import { useBusiness } from '../../hooks/useBusiness';
 
 /**
  * Public gallery.
@@ -17,6 +17,7 @@ import { PLACEHOLDER_GALLERY } from '../../lib/gallery';
  * placeholder tiles rather than showing an empty grid or an error.
  */
 export function GalleryPage() {
+  const business = useBusiness();
   const [items, setItems] = useState<PublicGalleryItem[] | null>(null);
 
   useEffect(() => {
@@ -114,8 +115,8 @@ export function GalleryPage() {
           <p className="text-smoke mb-7 max-w-md mx-auto">
             Give us a ring and we'll get your walls looking like they should.
           </p>
-          <ButtonLink to={`tel:${BUSINESS.phone}`} size="lg">
-            Call {formatPhone(BUSINESS.phone)}
+          <ButtonLink to={`tel:${business.phone}`} size="lg">
+            Call {formatPhone(business.phone)}
           </ButtonLink>
         </div>
       </section>

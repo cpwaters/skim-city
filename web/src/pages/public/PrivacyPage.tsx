@@ -1,8 +1,9 @@
 import { PageHeader } from '../../components/public/PageHeader';
-import { BUSINESS } from '../../lib/business';
 import { LegalBody } from '../../components/public/LegalBody';
+import { useBusiness } from '../../hooks/useBusiness';
 
 export function PrivacyPage() {
+  const business = useBusiness();
   return (
     <>
       <PageHeader eyebrow="Legal" title="Privacy policy" intro="What we collect, why, and how to get it removed." />
@@ -11,7 +12,7 @@ export function PrivacyPage() {
         <p>
           Skim City is a plastering business based in Manchester, United Kingdom. For the
           purposes of UK GDPR we are the data controller for the information described below.
-          Contact us at <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>.
+          Contact us at <a href={`mailto:${business.email}`}>{business.email}</a>.
         </p>
 
         <h2>What we collect</h2>
@@ -59,7 +60,7 @@ export function PrivacyPage() {
         <p>
           You can ask us for a copy of your data, ask us to correct it, or ask us to delete it
           where we're not required to keep it. Email{' '}
-          <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a> and we'll respond within
+          <a href={`mailto:${business.email}`}>{business.email}</a> and we'll respond within
           one month. If you're not happy with how we've handled it, you can complain to the
           Information Commissioner's Office at ico.org.uk.
         </p>

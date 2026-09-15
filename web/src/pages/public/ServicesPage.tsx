@@ -1,10 +1,11 @@
 import { ButtonLink } from '../../components/ui/Button';
-import { BUSINESS } from '../../lib/business';
 import { formatPhone } from '../../lib/format';
 import { SERVICES } from '../../lib/services';
 import { PageHeader } from '../../components/public/PageHeader';
+import { useBusiness } from '../../hooks/useBusiness';
 
 export function ServicesPage() {
+  const business = useBusiness();
   return (
     <>
       <PageHeader
@@ -53,8 +54,8 @@ export function ServicesPage() {
         </div>
 
         <div className="mt-12 text-center">
-          <ButtonLink to={`tel:${BUSINESS.phone}`} size="lg">
-            Call {formatPhone(BUSINESS.phone)}
+          <ButtonLink to={`tel:${business.phone}`} size="lg">
+            Call {formatPhone(business.phone)}
           </ButtonLink>
         </div>
       </section>

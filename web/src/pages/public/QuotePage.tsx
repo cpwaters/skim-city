@@ -4,8 +4,8 @@ import { Logo } from '../../components/Logo';
 import { Button, ButtonLink } from '../../components/ui/Button';
 import { ErrorState, Notice, Spinner } from '../../components/ui/States';
 import { acceptQuote, declineQuote, getQuote, type PublicQuote } from '../../lib/callables';
-import { BUSINESS } from '../../lib/business';
 import { formatPhone, longDate, money, slotLabel } from '../../lib/format';
+import { useBusiness } from '../../hooks/useBusiness';
 
 /**
  * The public quote page. No sign-in — the unguessable token in the URL is what
@@ -16,6 +16,7 @@ import { formatPhone, longDate, money, slotLabel } from '../../lib/format';
  * reach this application.
  */
 export function QuotePage() {
+  const business = useBusiness();
   const { token = '' } = useParams<{ token: string }>();
   const [quote, setQuote] = useState<PublicQuote | null>(null);
   const [loading, setLoading] = useState(true);
@@ -108,7 +109,7 @@ export function QuotePage() {
               <Notice tone="info">
                 Thanks for letting us know — the quote has been turned down and the date is back
                 on the calendar. If you change your mind, give us a ring on{' '}
-                {formatPhone(BUSINESS.phone)}.
+                {formatPhone(business.phone)}.
               </Notice>
             ) : (
               <>
@@ -221,11 +222,11 @@ export function QuotePage() {
             <footer className="mt-12 pt-8 border-t border-noir-700 text-center">
               <p className="text-sm text-smoke mb-4">Questions about anything on here?</p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <ButtonLink to={`tel:${BUSINESS.phone}`} variant="secondary" size="sm">
-                  {formatPhone(BUSINESS.phone)}
+                <ButtonLink to={`tel:${business.phone}`} variant="secondary" size="sm">
+                  {formatPhone(business.phone)}
                 </ButtonLink>
-                <ButtonLink to={`mailto:${BUSINESS.email}`} variant="ghost" size="sm">
-                  {BUSINESS.email}
+                <ButtonLink to={`mailto:${business.email}`} variant="ghost" size="sm">
+                  {business.email}
                 </ButtonLink>
               </div>
             </footer>

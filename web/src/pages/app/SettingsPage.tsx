@@ -3,7 +3,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { PageTitle } from '../../components/app/PageTitle';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Field';
+import { Input, Textarea } from '../../components/ui/Field';
 import { Notice, Spinner } from '../../components/ui/States';
 import { useDocument } from '../../hooks/useFirestore';
 import { db } from '../../lib/firebase-crm';
@@ -75,6 +75,27 @@ export function SettingsPage() {
             <Input label="Trading name" value={form.tradingName} onChange={(event) => update('tradingName', event.target.value)} />
             <Input label="Email" type="email" value={form.email} onChange={(event) => update('email', event.target.value)} />
             <Input label="Phone" type="tel" value={form.phone} onChange={(event) => update('phone', event.target.value)} />
+            <Input
+              label="WhatsApp opener"
+              value={form.whatsappGreeting ?? ''}
+              hint="Prefilled into the WhatsApp links on the public site."
+              onChange={(event) => update('whatsappGreeting', event.target.value)}
+            />
+            <Textarea
+              label="Areas covered"
+              rows={4}
+              value={form.coverageAreas.join('\n')}
+              hint="One per line. Shown on the public site."
+              onChange={(event) =>
+                update(
+                  'coverageAreas',
+                  event.target.value.split('\n').map((area) => area.trim()).filter(Boolean),
+                )
+              }
+            />
+            <p className="text-xs text-smoke-dim">
+              These show on the public site. It picks up changes on the next page load.
+            </p>
           </div>
         </Card>
 
