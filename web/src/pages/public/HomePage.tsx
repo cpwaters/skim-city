@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 import { ButtonLink } from '../../components/ui/Button';
-import { BUSINESS } from '../../lib/business';
 import { formatPhone, whatsappLink } from '../../lib/format';
 import { SERVICES } from '../../lib/services';
 import { ReviewsStrip } from '../../components/public/ReviewsStrip';
+import { useBusiness } from '../../hooks/useBusiness';
 
 export function HomePage() {
   return (
@@ -19,6 +19,7 @@ export function HomePage() {
 }
 
 function Hero() {
+  const business = useBusiness();
   return (
     <section className="relative overflow-hidden spotlight hatch border-b border-noir-700">
       <div className="mx-auto max-w-6xl px-5 py-20 sm:py-28 lg:py-36">
@@ -35,11 +36,11 @@ function Hero() {
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4">
-          <ButtonLink to={`tel:${BUSINESS.phone}`} size="lg">
-            Call {formatPhone(BUSINESS.phone)}
+          <ButtonLink to={`tel:${business.phone}`} size="lg">
+            Call {formatPhone(business.phone)}
           </ButtonLink>
           <ButtonLink
-            to={whatsappLink(BUSINESS.phone, BUSINESS.whatsappGreeting)}
+            to={whatsappLink(business.phone, business.whatsappGreeting)}
             size="lg"
             variant="secondary"
           >
@@ -118,6 +119,7 @@ function Services() {
 }
 
 function Coverage() {
+  const business = useBusiness();
   return (
     <section className="mx-auto max-w-6xl px-5 py-20 sm:py-24">
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-16 items-start">
@@ -136,7 +138,7 @@ function Coverage() {
         </div>
 
         <ul className="grid grid-cols-2 sm:grid-cols-3 gap-px bg-noir-700 border border-noir-700 rounded-[3px] overflow-hidden">
-          {BUSINESS.coverageAreas.map((area) => (
+          {business.coverageAreas.map((area) => (
             <li
               key={area}
               className="bg-noir-800 px-4 py-4 text-sm text-smoke font-display uppercase tracking-[0.1em]"
@@ -151,6 +153,7 @@ function Coverage() {
 }
 
 function FinalCta() {
+  const business = useBusiness();
   return (
     <section className="border-t border-noir-700 spotlight">
       <div className="mx-auto max-w-6xl px-5 py-20 sm:py-24 text-center">
@@ -162,11 +165,11 @@ function FinalCta() {
           Free quotes, fixed prices, and a date in the diary you can rely on.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <ButtonLink to={`tel:${BUSINESS.phone}`} size="lg">
-            Call {formatPhone(BUSINESS.phone)}
+          <ButtonLink to={`tel:${business.phone}`} size="lg">
+            Call {formatPhone(business.phone)}
           </ButtonLink>
           <ButtonLink
-            to={whatsappLink(BUSINESS.phone, BUSINESS.whatsappGreeting)}
+            to={whatsappLink(business.phone, business.whatsappGreeting)}
             size="lg"
             variant="secondary"
           >

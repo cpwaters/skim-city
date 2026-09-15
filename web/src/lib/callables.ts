@@ -139,6 +139,16 @@ export interface PublicGalleryItem {
   height: number;
 }
 
+export interface PublicBusinessInfo {
+  name: string;
+  email: string;
+  phone: string;
+  coverageAreas: string[];
+  whatsappGreeting: string | null;
+}
+
+export const getBusinessInfo = callable<Record<string, never>, PublicBusinessInfo>('getBusinessInfo');
+
 export const getGallery = callable<Record<string, never>, { items: PublicGalleryItem[] }>('getGallery');
 
 export const deleteGalleryItem = callable<

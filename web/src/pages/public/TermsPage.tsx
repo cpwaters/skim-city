@@ -1,8 +1,9 @@
 import { PageHeader } from '../../components/public/PageHeader';
-import { BUSINESS } from '../../lib/business';
 import { LegalBody } from '../../components/public/LegalBody';
+import { useBusiness } from '../../hooks/useBusiness';
 
 export function TermsPage() {
+  const business = useBusiness();
   return (
     <>
       <PageHeader
@@ -94,7 +95,7 @@ export function TermsPage() {
 
         <h2>10. Getting hold of us</h2>
         <p>
-          Any question, complaint or claim: <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>.
+          Any question, complaint or claim: <a href={`mailto:${business.email}`}>{business.email}</a>.
           These terms are governed by the law of England and Wales.
         </p>
       </LegalBody>

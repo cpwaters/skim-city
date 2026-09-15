@@ -317,6 +317,13 @@ export interface BusinessSettings {
   quoteValidDays: number;
   invoiceTermsDays: number;
   coverageAreas: string[];
+  /**
+   * Prefilled opener on the WhatsApp links across the public site.
+   *
+   * Display-only, like tradingName, email and phone — but kept here rather
+   * than in the bundle so changing it is a settings edit, not a redeploy.
+   */
+  whatsappGreeting?: string;
 }
 
 /**
@@ -420,6 +427,7 @@ export const DEFAULT_BUSINESS_SETTINGS: BusinessSettings = {
   bookingHorizonDays: 120,
   quoteValidDays: 30,
   invoiceTermsDays: 14,
+  whatsappGreeting: "Hi Chris, I'm after a plastering quote —",
   coverageAreas: [
     'Manchester',
     'Salford',

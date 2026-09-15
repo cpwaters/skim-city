@@ -1,11 +1,15 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Logo } from '../Logo';
 
 /**
- * CRM shell. Sidebar on desktop, bottom bar on mobile — Chris uses this
- * one-handed on site, so the primary destinations sit within thumb reach
- * rather than behind a hamburger.
+ * CRM shell. Sidebar on desktop; on mobile a bottom bar plus a drawer.
+ *
+ * The bottom bar keeps the five most-used destinations within thumb reach,
+ * because Chris works this one-handed on site. It cannot hold everything
+ * though, and the rest — quotes, payments, gallery, reviews, settings — had no
+ * mobile route at all, so the drawer carries the full list.
  */
 
 const NAV = [
@@ -26,6 +30,35 @@ const SECONDARY_NAV = [
 
 export function AppLayout() {
   const { user, signOut } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { pathname } = useLocation();
+  const burgerRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  // Tapping a link navigates without unmounting the drawer, so close on route
+  // change rather than wiring an onClick into every link.
+  useEffect(() => setMenuOpen(false), [pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    // Focus moves into the drawer, and back to the burger on close, so the
+    // keyboard and screen-reader path does not get stranded behind the overlay.
+    closeRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+
+    const { overflow } = document.body.style;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = overflow;
+      burgerRef.current?.focus();
+    };
+  }, [menuOpen]);
 
   return (
     <div className="min-h-dvh bg-noir-900 lg:grid lg:grid-cols-[240px_1fr]">
@@ -59,14 +92,22 @@ export function AppLayout() {
       </aside>
 
       <div className="flex flex-col min-w-0">
-        <header className="lg:hidden sticky top-0 z-30 bg-chrome/95 backdrop-blur-sm border-b border-noir-700 px-4 h-16 flex items-center justify-between">
-          <Logo size="sm" to="/app" />
+        <header className="lg:hidden sticky top-0 z-30 bg-chrome/95 backdrop-blur-sm border-b border-noir-700 px-4 h-16 flex items-center gap-3">
           <button
-            onClick={() => void signOut()}
-            className="text-xs font-display uppercase tracking-[0.14em] text-smoke cursor-pointer"
+            ref={burgerRef}
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open menu"
+            aria-expanded={menuOpen}
+            aria-controls="crm-drawer"
+            className="-ml-1 p-2 text-smoke hover:text-bone transition-colors cursor-pointer"
           >
-            Sign out
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
           </button>
+          <Logo size="sm" to="/app" />
         </header>
 
         {/* Bottom padding clears the mobile tab bar. */}
@@ -103,6 +144,64 @@ export function AppLayout() {
           ))}
         </ul>
       </nav>
+
+      {menuOpen && (
+        <div className="lg:hidden fixed inset-0 z-50">
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={() => setMenuOpen(false)}
+            className="absolute inset-0 bg-noir-900/80 backdrop-blur-sm cursor-default"
+          />
+
+          <div
+            id="crm-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="CRM menu"
+            className="absolute inset-y-0 left-0 w-[17rem] max-w-[85vw] bg-chrome-deep border-r border-noir-700 flex flex-col"
+          >
+            <div className="px-5 py-5 border-b border-noir-700 flex items-center justify-between">
+              <Logo size="sm" to="/app" />
+              <button
+                ref={closeRef}
+                type="button"
+                onClick={() => setMenuOpen(false)}
+                aria-label="Close menu"
+                className="p-2 -mr-2 text-smoke hover:text-bone transition-colors cursor-pointer"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6 6 18" />
+                </svg>
+              </button>
+            </div>
+
+            <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1" aria-label="All CRM pages">
+              {NAV.map((item) => (
+                <SidebarLink key={item.to} {...item} />
+              ))}
+              <div className="pt-4 mt-4 border-t border-noir-700 space-y-1">
+                {SECONDARY_NAV.map((item) => (
+                  <SidebarLink key={item.to} {...item} />
+                ))}
+              </div>
+            </nav>
+
+            <div className="px-5 py-4 border-t border-noir-700 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <p className="text-xs text-smoke-dim truncate mb-2" title={user?.email ?? ''}>
+                {user?.email}
+              </p>
+              <button
+                onClick={() => void signOut()}
+                className="text-xs font-display uppercase tracking-[0.14em] text-smoke hover:text-maroon-400 transition-colors cursor-pointer"
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

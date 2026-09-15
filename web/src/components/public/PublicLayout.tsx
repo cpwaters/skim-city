@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Logo } from '../Logo';
 import { ButtonLink } from '../ui/Button';
 import { formatPhone, whatsappLink } from '../../lib/format';
-import { BUSINESS } from '../../lib/business';
+import { useBusiness } from '../../hooks/useBusiness';
 
 const NAV = [
   { to: '/services', label: 'Services' },
@@ -13,6 +13,7 @@ const NAV = [
 ];
 
 export function PublicLayout() {
+  const business = useBusiness();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
@@ -62,8 +63,8 @@ export function PublicLayout() {
                 {item.label}
               </NavLink>
             ))}
-            <ButtonLink to={`tel:${BUSINESS.phone}`} size="sm" variant="primary">
-              {formatPhone(BUSINESS.phone)}
+            <ButtonLink to={`tel:${business.phone}`} size="sm" variant="primary">
+              {formatPhone(business.phone)}
             </ButtonLink>
           </nav>
 
@@ -100,10 +101,10 @@ export function PublicLayout() {
               ))}
             </ul>
             <div className="px-5 pb-5 grid grid-cols-2 gap-3">
-              <ButtonLink to={`tel:${BUSINESS.phone}`} size="sm" full>
+              <ButtonLink to={`tel:${business.phone}`} size="sm" full>
                 Call
               </ButtonLink>
-              <ButtonLink to={whatsappLink(BUSINESS.phone, BUSINESS.whatsappGreeting)} size="sm" variant="secondary" full>
+              <ButtonLink to={whatsappLink(business.phone, business.whatsappGreeting)} size="sm" variant="secondary" full>
                 WhatsApp
               </ButtonLink>
             </div>
@@ -121,6 +122,7 @@ export function PublicLayout() {
 }
 
 function PublicFooter() {
+  const business = useBusiness();
   return (
     <footer className="border-t border-noir-700 bg-chrome-deep hatch">
       <div className="mx-auto max-w-6xl px-5 py-12 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
@@ -132,18 +134,18 @@ function PublicFooter() {
           <h2 className="eyebrow mb-3">Get in touch</h2>
           <ul className="space-y-2 text-sm text-smoke">
             <li>
-              <a href={`tel:${BUSINESS.phone}`} className="hover:text-city-500 transition-colors">
-                {formatPhone(BUSINESS.phone)}
+              <a href={`tel:${business.phone}`} className="hover:text-city-500 transition-colors">
+                {formatPhone(business.phone)}
               </a>
             </li>
             <li>
-              <a href={`mailto:${BUSINESS.email}`} className="hover:text-city-500 transition-colors break-all">
-                {BUSINESS.email}
+              <a href={`mailto:${business.email}`} className="hover:text-city-500 transition-colors break-all">
+                {business.email}
               </a>
             </li>
             <li>
               <a
-                href={whatsappLink(BUSINESS.phone, BUSINESS.whatsappGreeting)}
+                href={whatsappLink(business.phone, business.whatsappGreeting)}
                 target="_blank"
                 rel="noreferrer noopener"
                 className="hover:text-city-500 transition-colors"
@@ -166,7 +168,7 @@ function PublicFooter() {
 
         <div>
           <h2 className="eyebrow mb-3">Covering</h2>
-          <p className="text-sm text-smoke leading-relaxed">{BUSINESS.coverageAreas.join(' · ')}</p>
+          <p className="text-sm text-smoke leading-relaxed">{business.coverageAreas.join(' · ')}</p>
         </div>
       </div>
 

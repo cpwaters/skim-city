@@ -5,10 +5,11 @@ import { StarRatingDisplay } from '../../components/StarRating';
 import { ButtonLink } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/States';
 import { getReviews, type PublicReview } from '../../lib/callables';
-import { BUSINESS } from '../../lib/business';
 import { formatPhone, whatsappLink } from '../../lib/format';
+import { useBusiness } from '../../hooks/useBusiness';
 
 export function ReviewsPage() {
+  const business = useBusiness();
   const [data, setData] = useState<{ reviews: PublicReview[]; average: number; count: number } | null>(
     null,
   );
@@ -42,8 +43,8 @@ export function ReviewsPage() {
               We're a new site and we'd rather show nothing than make something up. Ring us and
               we'll happily put you in touch with people we've worked for.
             </p>
-            <ButtonLink to={`tel:${BUSINESS.phone}`} variant="secondary">
-              {formatPhone(BUSINESS.phone)}
+            <ButtonLink to={`tel:${business.phone}`} variant="secondary">
+              {formatPhone(business.phone)}
             </ButtonLink>
           </div>
         ) : (
@@ -74,10 +75,10 @@ export function ReviewsPage() {
                 __html: JSON.stringify({
                   '@context': 'https://schema.org',
                   '@type': 'LocalBusiness',
-                  name: BUSINESS.name,
-                  telephone: `+44${BUSINESS.phone.slice(1)}`,
-                  email: BUSINESS.email,
-                  areaServed: BUSINESS.coverageAreas,
+                  name: business.name,
+                  telephone: `+44${business.phone.slice(1)}`,
+                  email: business.email,
+                  areaServed: business.coverageAreas,
                   aggregateRating: {
                     '@type': 'AggregateRating',
                     ratingValue: data.average,
@@ -104,11 +105,11 @@ export function ReviewsPage() {
             Give us a ring, or send a photo of the wall and we'll price it up.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <ButtonLink to={`tel:${BUSINESS.phone}`} size="lg">
-              Call {formatPhone(BUSINESS.phone)}
+            <ButtonLink to={`tel:${business.phone}`} size="lg">
+              Call {formatPhone(business.phone)}
             </ButtonLink>
             <ButtonLink
-              to={whatsappLink(BUSINESS.phone, BUSINESS.whatsappGreeting)}
+              to={whatsappLink(business.phone, business.whatsappGreeting)}
               size="lg"
               variant="secondary"
             >

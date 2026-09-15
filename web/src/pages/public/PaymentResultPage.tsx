@@ -1,8 +1,8 @@
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Logo } from '../../components/Logo';
 import { ButtonLink } from '../../components/ui/Button';
-import { BUSINESS } from '../../lib/business';
 import { formatPhone } from '../../lib/format';
+import { useBusiness } from '../../hooks/useBusiness';
 
 /**
  * Where Stripe sends the customer back to after checkout.
@@ -13,6 +13,7 @@ import { formatPhone } from '../../lib/format';
  * told they have paid when the webhook says otherwise.
  */
 export function PaymentResultPage() {
+  const business = useBusiness();
   const { result } = useParams<{ result: string }>();
   const [params] = useSearchParams();
   const success = result === 'success';
@@ -65,8 +66,8 @@ export function PaymentResultPage() {
             <ButtonLink to="/" variant={success ? 'primary' : 'secondary'}>
               Back to Skim City
             </ButtonLink>
-            <ButtonLink to={`tel:${BUSINESS.phone}`} variant="secondary">
-              {formatPhone(BUSINESS.phone)}
+            <ButtonLink to={`tel:${business.phone}`} variant="secondary">
+              {formatPhone(business.phone)}
             </ButtonLink>
           </div>
         </div>

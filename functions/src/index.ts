@@ -21,5 +21,6 @@ export { approveRefund, dismissRefund } from './payments/refunds';
 export { stripeWebhook } from './payments/webhooks';
 export { createJob, markJobComplete, updateJobStatus } from './jobs/functions';
 export { getGallery, deleteGalleryItem } from './gallery/functions';
+export { getBusinessInfo } from './business/functions';
 export { requestReview, getReviewRequest, submitReview, getReviews } from './reviews/functions';
 export { dailyDigest, sweepOverdueInvoices } from './scheduled/daily';

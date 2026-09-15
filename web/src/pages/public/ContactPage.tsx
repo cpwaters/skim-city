@@ -1,28 +1,29 @@
 import { PageHeader } from '../../components/public/PageHeader';
-import { BUSINESS } from '../../lib/business';
 import { formatPhone, whatsappLink } from '../../lib/format';
+import { useBusiness } from '../../hooks/useBusiness';
 
 export function ContactPage() {
+  const business = useBusiness();
   const channels = [
     {
       label: 'WhatsApp',
-      value: formatPhone(BUSINESS.phone),
+      value: formatPhone(business.phone),
       note: 'Quickest way to reach us. Send a photo of the wall and we can usually price it from that.',
-      href: whatsappLink(BUSINESS.phone, BUSINESS.whatsappGreeting),
+      href: whatsappLink(business.phone, business.whatsappGreeting),
       primary: true,
     },
     {
       label: 'Phone',
-      value: formatPhone(BUSINESS.phone),
+      value: formatPhone(business.phone),
       note: "If we're on the tools we'll miss it — leave a message and we'll ring back the same day.",
-      href: `tel:${BUSINESS.phone}`,
+      href: `tel:${business.phone}`,
       primary: false,
     },
     {
       label: 'Email',
-      value: BUSINESS.email,
+      value: business.email,
       note: 'Best for detailed jobs, drawings or anything you need in writing.',
-      href: `mailto:${BUSINESS.email}`,
+      href: `mailto:${business.email}`,
       primary: false,
     },
   ];
@@ -60,7 +61,7 @@ export function ContactPage() {
           <div>
             <h2 className="display text-lg text-bone mb-3">Where we cover</h2>
             <p className="text-sm text-smoke leading-relaxed mb-4">
-              {BUSINESS.coverageAreas.join(', ')} — and anywhere else in Greater Manchester
+              {business.coverageAreas.join(', ')} — and anywhere else in Greater Manchester
               worth the drive. Not sure? Just ask.
             </p>
           </div>

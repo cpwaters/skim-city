@@ -6,9 +6,9 @@ import { Button, ButtonLink } from '../../components/ui/Button';
 import { Textarea, Input } from '../../components/ui/Field';
 import { ErrorState, Notice, Spinner } from '../../components/ui/States';
 import { getReviewRequest, submitReview } from '../../lib/callables';
-import { BUSINESS } from '../../lib/business';
 import { formatPhone, longDate } from '../../lib/format';
 import { MIN_REVIEW_LENGTH, MAX_REVIEW_LENGTH } from '../../types/domain';
+import { useBusiness } from '../../hooks/useBusiness';
 
 /**
  * The review form a customer reaches from the link in their email.
@@ -17,6 +17,7 @@ import { MIN_REVIEW_LENGTH, MAX_REVIEW_LENGTH } from '../../types/domain';
  * in, which is what stops the reviews being spammable without a CAPTCHA.
  */
 export function ReviewPage() {
+  const business = useBusiness();
   const { token = '' } = useParams<{ token: string }>();
   const [context, setContext] = useState<Awaited<ReturnType<typeof getReviewRequest>> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -167,8 +168,8 @@ export function ReviewPage() {
               <p className="text-xs text-smoke-dim text-center">
                 Your review is checked before it goes on the site. If something went wrong with
                 the job, ring{' '}
-                <a href={`tel:${BUSINESS.phone}`} className="text-city-500 hover:text-city-600">
-                  {formatPhone(BUSINESS.phone)}
+                <a href={`tel:${business.phone}`} className="text-city-500 hover:text-city-600">
+                  {formatPhone(business.phone)}
                 </a>{' '}
                 and we'll put it right.
               </p>
