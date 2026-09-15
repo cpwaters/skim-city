@@ -1,10 +1,15 @@
 import { Resend } from 'resend';
-import { FROM_EMAIL, RESEND_API_KEY } from '../lib/config';
+import { BUSINESS_EMAIL, FROM_EMAIL, RESEND_API_KEY } from '../lib/config';
 import { logMessage } from './log';
 import type { MessageLogEntry } from '../domain';
 
 /**
- * Transactional email via Resend, sending as chris@skimcity.co.uk.
+ * Transactional email via Resend.
+ *
+ * Sends from FROM_EMAIL, which must sit on a domain verified in Resend —
+ * quote.skimcity.co.uk, not the apex. That subdomain only sends, so replies
+ * default to BUSINESS_EMAIL: a customer answering a quote reaches Chris's real
+ * inbox rather than a mailbox that does not exist.
  *
  * Like Telegram, a delivery failure is logged rather than thrown: a customer's
  * payment must not be rolled back because a receipt bounced.
@@ -31,7 +36,7 @@ export async function sendEmail(params: {
       to: params.to,
       subject: params.subject,
       html: params.html,
-      ...(params.replyTo ? { replyTo: params.replyTo } : {}),
+      replyTo: params.replyTo ?? BUSINESS_EMAIL,
     });
 
     if (error) throw new Error(error.message);
