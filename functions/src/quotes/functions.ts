@@ -19,6 +19,7 @@ import { generateToken } from '../lib/tokens';
 import { adapterFor } from '../payments/adapters';
 import { nextInvoiceNumber, nextQuoteNumber, peekNextQuoteNumber } from '../lib/counters';
 import { buildInstalments, processorInvoiceIds, readInstalments } from '../payments/instalments';
+import { raiseRefundRequests } from '../payments/refunds';
 import { sendEmail } from '../messaging/email';
 import { notifyTelegram } from '../messaging/telegram';
 import { escapeHtml, quoteEmail, slotLabel } from '../messaging/templates';
@@ -402,4 +403,82 @@ export const declineQuote = onCall({ region: REGION, cors: true, secrets: [TELEG
   );
 
   return { declined: true };
+});
+
+/**
+ * Admin: cancel a quote on its own, without cancelling the whole job.
+ *
+ * Separate from cancelling the job because the two are different decisions:
+ * a job can outlive a quote that was priced wrong and needs re-doing. Only a
+ * live quote can be cancelled — an accepted one has an invoice behind it and
+ * a declined one already records the customer's answer.
+ */
+export const cancelQuote = onCall({ region: REGION, secrets: QUOTE_SECRETS }, async (request) => {
+  assertAdmin(request);
+  const { quoteId, reason } = parseOrThrow(
+    z.object({ quoteId: z.string().min(1), reason: z.string().trim().max(300).optional() }),
+    request.data,
+  );
+
+  const ref = db.collection(COLLECTIONS.quotes).doc(quoteId);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError('not-found', 'Quote not found.');
+
+  const quote = { id: snap.id, ...snap.data() } as Quote;
+
+  if (quote.status === 'cancelled') return { quoteId, status: 'cancelled', refundsRaised: 0 };
+  if (quote.status === 'declined') {
+    throw new HttpsError('failed-precondition', 'This quote was declined by the customer.');
+  }
+
+  const timestamp = nowIso();
+  await ref.set({ status: 'cancelled', cancelledAt: timestamp, updatedAt: timestamp }, { merge: true });
+
+  // An accepted quote may have money against it. Cancelling does not move any,
+  // but it does put on record that some is owed back.
+  const refundsRaised = await raiseRefundRequests({
+    jobId: quote.jobId,
+    quoteId: quote.id,
+    reason: reason?.trim()
+      ? `Quote ${quote.reference} cancelled: ${reason.trim()}`
+      : `Quote ${quote.reference} cancelled`,
+  });
+
+  return { quoteId, status: 'cancelled', refundsRaised };
+});
+
+/**
+ * Admin: delete a cancelled quote outright.
+ *
+ * Only ever a cancelled one, and only when no money has moved. A quote tied to
+ * a payment is part of the audit trail for that payment and has to stay.
+ * Gaps left in the quote sequence are harmless — quote numbers are ours, not
+ * HMRC's. Invoice numbers, which are, are never touched here.
+ */
+export const deleteQuote = onCall({ region: REGION }, async (request) => {
+  assertAdmin(request);
+  const { quoteId } = parseOrThrow(z.object({ quoteId: z.string().min(1) }), request.data);
+
+  const ref = db.collection(COLLECTIONS.quotes).doc(quoteId);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError('not-found', 'Quote not found.');
+
+  const quote = { id: snap.id, ...snap.data() } as Quote;
+
+  if (quote.status !== 'cancelled') {
+    throw new HttpsError('failed-precondition', 'Only a cancelled quote can be deleted. Cancel it first.');
+  }
+
+  const paidSnap = await db.collection(COLLECTIONS.payments).where('jobId', '==', quote.jobId).get();
+  const collected = paidSnap.docs.reduce((sum, doc) => sum + ((doc.data().amountPence as number) ?? 0), 0);
+
+  if (collected > 0) {
+    throw new HttpsError(
+      'failed-precondition',
+      'This quote has payments against it and is part of the audit trail. It can be cancelled but not deleted.',
+    );
+  }
+
+  await ref.delete();
+  return { quoteId, deleted: true };
 });

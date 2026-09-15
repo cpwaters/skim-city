@@ -6,8 +6,18 @@
  */
 
 export { blockDay, onJobWrite } from './booking/functions';
-export { peekQuoteNumber, createQuote, sendQuote, getQuote, acceptQuote, declineQuote } from './quotes/functions';
+export {
+  peekQuoteNumber,
+  createQuote,
+  sendQuote,
+  getQuote,
+  acceptQuote,
+  declineQuote,
+  cancelQuote,
+  deleteQuote,
+} from './quotes/functions';
 export { createInvoice, billBalance, sendInvoice, voidInvoice } from './payments/invoices';
+export { approveRefund, dismissRefund } from './payments/refunds';
 export { stripeWebhook } from './payments/webhooks';
 export { createJob, markJobComplete, updateJobStatus } from './jobs/functions';
 export { getGallery, deleteGalleryItem } from './gallery/functions';

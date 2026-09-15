@@ -14,6 +14,7 @@ import {
 import { claimDaysInTransaction, readDayBooking } from '../booking/availability';
 import { getSettings } from '../lib/settings';
 import { notifyTelegram } from '../messaging/telegram';
+import { raiseRefundRequests } from '../payments/refunds';
 import { escapeHtml } from '../messaging/templates';
 import type { Customer, Job } from '../domain';
 
@@ -184,15 +185,20 @@ export const updateJobStatus = onCall(
     // Cancelling releases the slot via the onJobWrite reconciler; worth an
     // alert because it changes what the public calendar shows.
     let quotesCancelled = 0;
+    let refundsRaised = 0;
     if (status === 'cancelled' && job.status !== 'cancelled') {
       quotesCancelled = await cancelLiveQuotes(jobId, timestamp);
+      refundsRaised = await raiseRefundRequests({
+        jobId,
+        reason: `Job on ${job.date} cancelled`,
+      });
       await notifyTelegram(
         `<b>Job cancelled</b>\n\n${escapeHtml(job.date)} — the slot is back on the calendar.`,
         { template: 'job-cancelled', relatedTo: { jobId } },
       );
     }
 
-    return { jobId, status, quotesCancelled };
+    return { jobId, status, quotesCancelled, refundsRaised };
   },
 );
 

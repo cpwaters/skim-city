@@ -2,10 +2,18 @@ import { COLLECTIONS, db } from '../lib/firebase';
 import { nowIso } from '../lib/dates';
 import { formatMoney } from '../lib/money';
 import { notifyTelegram } from '../messaging/telegram';
+import { escapeHtml } from '../messaging/templates';
 import { sendEmail } from '../messaging/email';
 import { paymentReceiptEmail } from '../messaging/templates';
 import { collectedPence, deriveInvoiceStatus, hasInstalments, readInstalments } from './instalments';
-import type { NormalisedPaymentEvent } from './processor';
+import type {
+  NormalisedDisputeEvent,
+  NormalisedEvent,
+  NormalisedPaymentEvent,
+  NormalisedPaymentFailedEvent,
+  NormalisedRefundEvent,
+  NormalisedVoidedEvent,
+} from './processor';
 import type { Customer, Instalment, Invoice, Job, Payment } from '../domain';
 
 /**
@@ -83,6 +91,7 @@ export async function applyPaymentEvent(event: NormalisedPaymentEvent): Promise<
       jobId: invoice.jobId,
       processor: event.processor,
       processorPaymentId: event.processorPaymentId,
+      processorChargeId: event.processorChargeId,
       amountPence: deltaPence,
       currency: 'GBP',
       status: 'completed',
@@ -218,4 +227,171 @@ async function legacyOutstandingForJob(
   const paidSnap = await db.collection(COLLECTIONS.payments).where('jobId', '==', invoice.jobId).get();
   const collected = paidSnap.docs.reduce((sum, doc) => sum + ((doc.data().amountPence as number) ?? 0), 0);
   return Math.max(0, jobTotalPence - collected);
+}
+
+/**
+ * Every verified webhook lands here and is sent to the handler for its kind.
+ *
+ * Anything this throws is retried by the processor, so a handler must be safe
+ * to run twice. Each one is: payments and refunds compare a cumulative total
+ * against what is recorded, and the alert-only handlers write nothing.
+ */
+export async function applyProcessorEvent(event: NormalisedEvent): Promise<void> {
+  switch (event.kind) {
+    case 'payment':
+      return applyPaymentEvent(event);
+    case 'refund':
+      return applyRefundEvent(event);
+    case 'payment_failed':
+      return applyPaymentFailedEvent(event);
+    case 'dispute':
+      return applyDisputeEvent(event);
+    case 'voided':
+      return applyVoidedEvent(event);
+  }
+}
+
+/**
+ * Money given back, whether raised from the CRM or straight from Stripe.
+ *
+ * The processor is the authority on a refund, not our button: the CRM records
+ * a request and asks Stripe to act, but the payment is only marked refunded
+ * here, when Stripe confirms it. A refund issued in the dashboard lands in
+ * exactly the same place.
+ */
+async function applyRefundEvent(event: NormalisedRefundEvent): Promise<void> {
+  const snap = await db
+    .collection(COLLECTIONS.payments)
+    .where('processorChargeId', '==', event.processorChargeId)
+    .limit(1)
+    .get();
+
+  if (snap.empty) {
+    console.warn(`Refund for unknown charge ${event.processorChargeId} — nothing to reconcile`);
+    return;
+  }
+
+  const ref = snap.docs[0].ref;
+  const payment = { id: snap.docs[0].id, ...snap.docs[0].data() } as Payment;
+
+  // Cumulative, so a replay or a second partial refund both settle correctly.
+  if ((payment.refundedPence ?? 0) >= event.cumulativeRefundedPence) return;
+
+  const fully = event.cumulativeRefundedPence >= payment.amountPence;
+  const timestamp = nowIso();
+
+  await ref.set(
+    {
+      refundedPence: event.cumulativeRefundedPence,
+      refundedAt: timestamp,
+      status: fully ? 'refunded' : payment.status,
+    },
+    { merge: true },
+  );
+
+  // Settle any request this answers, whichever way the refund was started.
+  const open = await db
+    .collection(COLLECTIONS.refundRequests)
+    .where('paymentId', '==', payment.id)
+    .where('status', '==', 'open')
+    .limit(1)
+    .get();
+
+  if (!open.empty) {
+    await open.docs[0].ref.set(
+      {
+        status: 'settled',
+        processorRefundId: event.processorRefundId,
+        settledAt: timestamp,
+        updatedAt: timestamp,
+      },
+      { merge: true },
+    );
+  }
+
+  await notifyTelegram(
+    [
+      `<b>↩️ Refund confirmed</b>`,
+      ``,
+      `${formatMoney(event.cumulativeRefundedPence)} returned${fully ? ' in full' : ' (partial)'}`,
+      (open.empty ? 'Refunded at Stripe, not from the CRM.' : 'Settles the refund request raised in the CRM.'),
+    ].join('\n'),
+    { template: 'refund-confirmed', relatedTo: { invoiceId: payment.invoiceId, jobId: payment.jobId } },
+  );
+}
+
+/**
+ * A card was declined. Nothing is written — the invoice is still owed, and its
+ * status already says so. This exists so Chris hears about it, because today a
+ * failed payment is completely silent.
+ */
+async function applyPaymentFailedEvent(event: NormalisedPaymentFailedEvent): Promise<void> {
+  const ref = await findInvoiceRef(event.processorInvoiceId);
+  const invoice = ref ? ((await ref.get()).data() as Invoice | undefined) : undefined;
+
+  await notifyTelegram(
+    [
+      `<b>⚠️ Payment failed</b>`,
+      ``,
+      `${formatMoney(event.amountPence)} did not go through`,
+      invoice ? `Invoice ${invoice.number}` : `Stripe invoice ${event.processorInvoiceId}`,
+      event.reason ? `Reason: ${escapeHtml(event.reason)}` : '',
+      `They will need a new payment link, or another card.`,
+    ]
+      .filter(Boolean)
+      .join('\n'),
+    { template: 'payment-failed', ...(invoice ? { relatedTo: { jobId: invoice.jobId } } : {}) },
+  );
+}
+
+/**
+ * A chargeback. Alert only, and deliberately loud: Stripe gives a deadline to
+ * submit evidence and missing it loses the money by default.
+ */
+async function applyDisputeEvent(event: NormalisedDisputeEvent): Promise<void> {
+  const snap = await db
+    .collection(COLLECTIONS.payments)
+    .where('processorChargeId', '==', event.processorPaymentId)
+    .limit(1)
+    .get();
+
+  const payment = snap.empty ? null : ({ id: snap.docs[0].id, ...snap.docs[0].data() } as Payment);
+
+  await notifyTelegram(
+    [
+      `<b>🚨 CHARGEBACK opened</b>`,
+      ``,
+      `${formatMoney(event.amountPence)} disputed`,
+      event.reason ? `Reason: ${escapeHtml(event.reason)}` : '',
+      event.dueBy ? `Evidence due by ${event.dueBy.slice(0, 10)} — miss it and the money is gone.` : '',
+      `Respond in the Stripe dashboard.`,
+    ]
+      .filter(Boolean)
+      .join('\n'),
+    { template: 'dispute-opened', ...(payment ? { relatedTo: { jobId: payment.jobId, invoiceId: payment.invoiceId } } : {}) },
+  );
+}
+
+/** Voided at Stripe's end. Keeps our copy from claiming money is still due. */
+async function applyVoidedEvent(event: NormalisedVoidedEvent): Promise<void> {
+  const ref = await findInvoiceRef(event.processorInvoiceId);
+  if (!ref) return;
+
+  const invoice = { id: ref.id, ...(await ref.get()).data() } as Invoice;
+  if (invoice.status === 'void' || invoice.amountPaidPence > 0) return;
+
+  const instalments = readInstalments(invoice).map((instalment) =>
+    instalment.processorInvoiceId === event.processorInvoiceId
+      ? { ...instalment, status: 'void' as const }
+      : instalment,
+  );
+
+  await ref.set(
+    {
+      ...(hasInstalments(invoice) ? { instalments } : {}),
+      status: deriveInvoiceStatus(invoice, instalments),
+      updatedAt: nowIso(),
+    },
+    { merge: true },
+  );
 }

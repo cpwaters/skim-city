@@ -11,8 +11,10 @@ import { useCollection, useDocument } from '../../hooks/useFirestore';
 import { db } from '../../lib/firebase-crm';
 import { uploadPhotoDrafts, releaseDraft, type PhotoDraft } from '../../lib/photos';
 import {
+  approveRefund,
   billBalance,
   createInvoice,
+  dismissRefund,
   markJobComplete,
   requestReview,
   sendInvoice,
@@ -27,7 +29,15 @@ import {
   slotLabel,
   whatsappLink,
 } from '../../lib/format';
-import type { BusinessSettings, Customer, Invoice, Job, Payment, Quote } from '../../types/domain';
+import type {
+  BusinessSettings,
+  Customer,
+  Invoice,
+  Job,
+  Payment,
+  Quote,
+  RefundRequest,
+} from '../../types/domain';
 
 /**
  * The spine of the CRM: everything about one job, and every action Chris takes
@@ -93,6 +103,14 @@ export function JobDetailPage() {
     jobId ? [where('jobId', '==', jobId)] : [],
     `job-payments-${jobId}`,
   );
+
+  const { data: refundRequests } = useCollection<RefundRequest>(
+    'refundRequests',
+    jobId ? [where('jobId', '==', jobId)] : [],
+    `job-refunds-${jobId}`,
+  );
+
+  const openRefunds = refundRequests.filter((refund) => refund.status === 'open');
 
   const [quoting, setQuoting] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -387,6 +405,67 @@ export function JobDetailPage() {
               </ul>
             )}
           </Card>
+
+          {openRefunds.length > 0 && (
+            <Card>
+              <CardHeader title="Refunds owed" />
+              <ul className="divide-y divide-noir-700">
+                {openRefunds.map((refund) => (
+                  <li key={refund.id} className="px-4 py-3.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm text-bone tabular-nums">{money(refund.amountPence)}</p>
+                        <p className="text-xs text-smoke">{refund.reason}</p>
+                      </div>
+                      <span className="text-[0.6rem] font-display uppercase tracking-[0.12em] text-maroon-400 shrink-0">
+                        {refund.processorRefundId ? 'Requested' : 'Awaiting approval'}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-3 mt-2">
+                      {!refund.processorRefundId && (
+                        <>
+                          <Button
+                            size="sm"
+                            loading={busy === `refund-${refund.id}`}
+                            disabled={busy !== null}
+                            onClick={() => {
+                              if (
+                                !window.confirm(
+                                  `Refund ${money(refund.amountPence)} to the customer? This sends real money back through Stripe.`,
+                                )
+                              )
+                                return;
+                              void run(`refund-${refund.id}`, async () => {
+                                const result = await approveRefund({ refundRequestId: refund.id });
+                                return `Refund of ${money(result.amountPence)} sent to Stripe (${result.status}). It closes once Stripe confirms.`;
+                              });
+                            }}
+                          >
+                            Refund {money(refund.amountPence)}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            loading={busy === `dismiss-${refund.id}`}
+                            disabled={busy !== null}
+                            onClick={() => {
+                              if (!window.confirm('Dismiss without refunding? The money stays where it is.')) return;
+                              void run(`dismiss-${refund.id}`, async () => {
+                                await dismissRefund({ refundRequestId: refund.id });
+                                return 'Refund request dismissed.';
+                              });
+                            }}
+                          >
+                            Dismiss
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
 
           {payments.length > 0 && (
             <Card>

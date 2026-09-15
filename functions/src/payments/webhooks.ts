@@ -9,7 +9,7 @@ import {
   TELEGRAM_CHAT_ID,
 } from '../lib/config';
 import { stripeAdapter } from './stripe';
-import { applyPaymentEvent } from './apply';
+import { applyProcessorEvent } from './apply';
 import { WebhookConfigError, WebhookSignatureError, type PaymentAdapter } from './processor';
 
 /**
@@ -64,7 +64,7 @@ async function handleWebhook(
 
   // Verified. Anything failing from here is our problem, so let it retry.
   try {
-    if (event) await applyPaymentEvent(event);
+    if (event) await applyProcessorEvent(event);
     res.status(200).send('ok');
   } catch (error) {
     console.error(`${name} webhook processing failed`, error);
