@@ -5,7 +5,7 @@
  * Region and secrets are declared per-function in lib/config.ts.
  */
 
-export { blockDay, onJobWrite } from './booking/functions';
+export { blockDay, setDayNote, onJobWrite } from './booking/functions';
 export {
   peekQuoteNumber,
   createQuote,

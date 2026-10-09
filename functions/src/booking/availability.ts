@@ -13,8 +13,9 @@ import { ACTIVE_JOB_STATUSES, type Availability, type DayBooking, type Job, type
  * booking leaves the other half of the day open but rules out a full day.
  *
  * `dayBookings/{date}` is the authoritative record and the lock. `availability/
- * {date}` is a sanitised public projection of it — booleans only, because it is
- * world-readable and Firestore rules cannot filter fields on read.
+ * {date}` is a projection of it, carrying no job ids, so the diary can render a
+ * whole month from one query. Both are admin-only (see firestore.rules) — the
+ * public calendar that once made the projection world-readable is gone.
  */
 
 export function emptyDayBooking(date: string): DayBooking {
@@ -100,7 +101,7 @@ export async function readDayBooking(tx: Transaction, date: string): Promise<Day
  * Rebuilds a day from the jobs collection — the reconciler.
  *
  * Called by the onJobWrite trigger so that cancellations, date changes and
- * anything Chris edits by hand in the CRM flow through to the public calendar.
+ * anything Chris edits by hand in the CRM flow through to the diary.
  * Deliberately derives state from the jobs themselves rather than patching, so
  * the diary cannot drift out of sync with reality.
  */
@@ -140,6 +141,31 @@ export async function setDayBlocked(date: string, blocked: boolean, note?: strin
     const day = await readDayBooking(tx, date);
     const updated: DayBooking = { ...day, blocked, updatedAt: nowIso() };
     if (note !== undefined) updated.note = note;
+    writeDay(tx, updated);
+  });
+}
+
+/**
+ * Sets or clears the note against a day, leaving its bookings alone.
+ *
+ * Kept apart from `setDayBlocked` because a note says nothing about
+ * availability — most of them sit on days that are working normally. Folding
+ * the two together would force the CRM to restate `blocked` every time it saved
+ * a note, and a screen holding a stale value would then unblock a day by
+ * accident.
+ *
+ * An empty note deletes the field rather than storing `''`: `writeDay`
+ * replaces the document instead of merging, so omitting the key is the delete,
+ * and `projectAvailability` already drops a falsy note from the projection.
+ */
+export async function writeDayNote(date: string, note: string): Promise<void> {
+  await db.runTransaction(async (tx) => {
+    const day = await readDayBooking(tx, date);
+    const updated: DayBooking = { ...day, updatedAt: nowIso() };
+
+    if (note) updated.note = note;
+    else delete updated.note;
+
     writeDay(tx, updated);
   });
 }
