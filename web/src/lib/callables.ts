@@ -29,6 +29,11 @@ export const blockDay = callable<
   { date: string; blocked: boolean }
 >('blockDay');
 
+/** An empty `note` clears the day's note. */
+export const setDayNote = callable<{ date: string; note: string }, { date: string; note: string }>(
+  'setDayNote',
+);
+
 export const createJob = callable<
   {
     name: string;

@@ -5,18 +5,20 @@ import { PageTitle } from '../../components/app/PageTitle';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { JobStatusBadge } from '../../components/ui/Badge';
+import { Textarea } from '../../components/ui/Field';
 import { Notice } from '../../components/ui/States';
 import { useCollection } from '../../hooks/useFirestore';
-import { blockDay } from '../../lib/callables';
+import { blockDay, setDayNote } from '../../lib/callables';
 import { dayOfWeek, longDate, money, slotLabel, todayIso } from '../../lib/format';
-import type { Availability, Customer, Job } from '../../types/domain';
+import { MAX_DAY_NOTE_LENGTH, type Availability, type Customer, type Job } from '../../types/domain';
 
 /**
  * The month diary.
  *
  * Reads jobs directly rather than the `availability` projection, because Chris
- * needs to see *who* is booked, not just that something is. The public
- * calendar's booleans are derived from the same jobs by the onJobWrite trigger.
+ * needs to see *who* is booked, not just that something is. The projection is
+ * still read alongside them, for what is not derivable from a job: whether the
+ * day is blocked, and the note against it.
  */
 export function DiaryPage() {
   const [month, setMonth] = useState(() => todayIso().slice(0, 7));
@@ -57,6 +59,11 @@ export function DiaryPage() {
 
   const blockedDates = useMemo(
     () => new Set(availability.filter((day) => day.blocked).map((day) => day.date)),
+    [availability],
+  );
+
+  const notesByDate = useMemo(
+    () => new Map(availability.filter((day) => day.note).map((day) => [day.date, day.note!])),
     [availability],
   );
 
@@ -133,6 +140,7 @@ export function DiaryPage() {
                     date={date}
                     jobs={byDate.get(date) ?? []}
                     blocked={blockedDates.has(date)}
+                    hasNote={notesByDate.has(date)}
                     isToday={date === todayIso()}
                     selected={date === selected}
                     onSelect={() => setSelected(date)}
@@ -152,7 +160,7 @@ export function DiaryPage() {
 
           <div className="p-4 space-y-4">
             {selectedBlocked && (
-              <Notice tone="info">This day is blocked out and hidden from the public calendar.</Notice>
+              <Notice tone="info">This day is blocked out — no work can be booked into it.</Notice>
             )}
 
             {selectedJobs.length === 0 ? (
@@ -187,15 +195,22 @@ export function DiaryPage() {
             )}
 
             {selected && (
-              <Button
-                variant={selectedBlocked ? 'secondary' : 'ghost'}
-                size="sm"
-                full
-                loading={busy}
-                onClick={() => void toggleBlocked()}
-              >
-                {selectedBlocked ? 'Unblock this day' : 'Block this day off'}
-              </Button>
+              <div className="pt-1 border-t border-noir-700 space-y-4">
+                {/* Keyed by date so switching day starts a fresh draft from
+                    that day's saved note rather than carrying the last one
+                    over. */}
+                <DayNote key={selected} date={selected} note={notesByDate.get(selected) ?? ''} />
+
+                <Button
+                  variant={selectedBlocked ? 'secondary' : 'ghost'}
+                  size="sm"
+                  full
+                  loading={busy}
+                  onClick={() => void toggleBlocked()}
+                >
+                  {selectedBlocked ? 'Unblock this day' : 'Block this day off'}
+                </Button>
+              </div>
             )}
           </div>
         </Card>
@@ -208,6 +223,7 @@ function DayCell({
   date,
   jobs,
   blocked,
+  hasNote,
   isToday,
   selected,
   onSelect,
@@ -215,6 +231,7 @@ function DayCell({
   date: string;
   jobs: Job[];
   blocked: boolean;
+  hasNote: boolean;
   isToday: boolean;
   selected: boolean;
   onSelect: () => void;
@@ -241,12 +258,21 @@ function DayCell({
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
-      aria-label={`${date}, ${jobs.length} job${jobs.length === 1 ? '' : 's'}${blocked ? ', blocked' : ''}`}
+      aria-label={`${date}, ${jobs.length} job${jobs.length === 1 ? '' : 's'}${blocked ? ', blocked' : ''}${hasNote ? ', has a note' : ''}`}
       className={[
-        'aspect-square p-1 rounded-[2px] flex flex-col items-center justify-start transition-colors cursor-pointer',
+        'relative aspect-square p-1 rounded-[2px] flex flex-col items-center justify-start transition-colors cursor-pointer',
         tone,
       ].join(' ')}
     >
+      {/* Deliberately the accent colour rather than moss or maroon: a note is
+          information about the day, not a claim on it. */}
+      {hasNote && (
+        <span
+          aria-hidden="true"
+          className={`absolute top-1 right-1 size-1 rounded-full ${selected ? 'bg-noir-900' : 'bg-city-500'}`}
+        />
+      )}
+
       <span className={`text-xs leading-tight mt-1 ${isToday && !selected ? 'text-city-500 font-semibold' : ''}`}>
         {Number(date.slice(8))}
       </span>
@@ -264,6 +290,90 @@ function DayCell({
         )}
       </span>
     </button>
+  );
+}
+
+/**
+ * The note against one day — materials arriving, a gate code, who to ring.
+ *
+ * Saved explicitly rather than debounced as you type. A note is read days or
+ * weeks after it is written, so half-finished text would be worse than none —
+ * and an explicit save also sidesteps the bug LiveInput exists to dodge: the
+ * snapshot listener echoing a stale server value back into a controlled field
+ * mid-keystroke. `note` is the stored value; the draft is owned here, and only
+ * takes `note` on when there is nothing unsaved to lose.
+ */
+function DayNote({ date, note }: { date: string; note: string }) {
+  const [saved, setSaved] = useState(note);
+  const [draft, setDraft] = useState(note);
+  const [seen, setSeen] = useState(note);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Adopt a note that changes on the server, unless there are unsaved edits to
+  // lose. The `key` above only covers switching day; this covers the month's
+  // projection landing a tick AFTER this mounts, which is every first paint —
+  // without it the editor sits empty on a day that plainly has a note.
+  //
+  // Compared against `seen` rather than `saved` so that a save of our own does
+  // not trip it: between the callable returning and the snapshot echoing it
+  // back, `note` is still the old text and would otherwise revert the field.
+  if (note !== seen) {
+    setSeen(note);
+    if (draft.trim() === saved) {
+      setDraft(note);
+      setSaved(note);
+    }
+  }
+
+  const trimmed = draft.trim();
+  const dirty = trimmed !== saved;
+  const remaining = MAX_DAY_NOTE_LENGTH - draft.length;
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+
+    try {
+      await setDayNote({ date, note: trimmed });
+      setSaved(trimmed);
+      // Adopt the trimmed text, so the field shows exactly what was stored.
+      setDraft(trimmed);
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : 'Could not save that note.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <Textarea
+        label="Day note"
+        rows={3}
+        value={draft}
+        maxLength={MAX_DAY_NOTE_LENGTH}
+        placeholder="Boards arriving 8am, gate code 4821, ring Dave first…"
+        hint={remaining <= 80 ? `${remaining} character${remaining === 1 ? '' : 's'} left` : undefined}
+        onChange={(event) => setDraft(event.target.value)}
+      />
+
+      {error && <Notice tone="error">{error}</Notice>}
+
+      <div className="flex gap-2">
+        <Button size="sm" full loading={busy} disabled={!dirty} onClick={() => void save()}>
+          {saved && !trimmed ? 'Remove note' : saved ? 'Save note' : 'Add note'}
+        </Button>
+
+        {/* Emptying the field is a click rather than a long press on Backspace;
+            the save is still the only thing that writes. */}
+        {draft && (
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => setDraft('')}>
+            Clear
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }
 

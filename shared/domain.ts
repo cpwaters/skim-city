@@ -271,9 +271,14 @@ export interface RefundRequest {
 }
 
 /**
- * PUBLIC-READ. Booleans only — this document is world-readable so the booking
- * calendar can render, and Firestore rules cannot filter fields on read.
- * Never add customer data here; the private mirror is `dayBookings`.
+ * The diary's day projection, derived from `dayBookings` and written only by
+ * Cloud Functions.
+ *
+ * This was world-readable back when the public site booked its own slots, and
+ * so held booleans and nothing else. Slots are set in the CRM now and it is
+ * admin-only (see firestore.rules) — which is what lets `note` live here at
+ * all. It still carries no job ids, so the diary renders a whole month from one
+ * query; the ids stay in `dayBookings`.
  */
 export interface Availability {
   date: string;
@@ -281,6 +286,7 @@ export interface Availability {
   amTaken: boolean;
   pmTaken: boolean;
   blocked: boolean;
+  /** See `DayBooking.note` — this is a copy of it. */
   note?: string;
 }
 
@@ -291,9 +297,20 @@ export interface DayBooking {
   amJobId: string | null;
   pmJobId: string | null;
   blocked: boolean;
+  /**
+   * Chris's note against the day: materials arriving, a gate code, who to ring.
+   *
+   * Belongs to the DAY, not to a job — half of what it is for are days with no
+   * job on them at all, and it has to survive a job being rescheduled away. Job
+   * detail goes in `Job.internalNotes` instead. Absent when there is no note;
+   * never an empty string.
+   */
   note?: string;
   updatedAt: string;
 }
+
+/** Cap on a day note. Room for a couple of lines, not a job sheet. */
+export const MAX_DAY_NOTE_LENGTH = 500;
 
 export interface BusinessSettings {
   tradingName: string;

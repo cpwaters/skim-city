@@ -5,20 +5,49 @@ import { REGION } from '../lib/config';
 import { COLLECTIONS, db } from '../lib/firebase';
 import { assertAdmin } from '../lib/auth';
 import { isoDateSchema, parseOrThrow } from '../lib/validation';
-import { emptyDayBooking, projectAvailability, recomputeDay, setDayBlocked } from './availability';
-import type { Job } from '../domain';
+import {
+  emptyDayBooking,
+  projectAvailability,
+  recomputeDay,
+  setDayBlocked,
+  writeDayNote,
+} from './availability';
+import { MAX_DAY_NOTE_LENGTH, type Job } from '../domain';
 
 /** Admin: block or unblock a day (holiday, weather, sickness). */
 export const blockDay = onCall({ region: REGION }, async (request) => {
   assertAdmin(request);
 
   const { date, blocked, note } = parseOrThrow(
-    z.object({ date: isoDateSchema, blocked: z.boolean(), note: z.string().trim().max(200).optional() }),
+    z.object({
+      date: isoDateSchema,
+      blocked: z.boolean(),
+      note: z.string().trim().max(MAX_DAY_NOTE_LENGTH).optional(),
+    }),
     request.data,
   );
 
   await setDayBlocked(date, blocked, note);
   return { date, blocked };
+});
+
+/**
+ * Admin: set the note against a day, or clear it by sending an empty string.
+ *
+ * Takes no `blocked` flag on purpose — see `writeDayNote`. The note is required
+ * rather than optional because an absent one would be ambiguous: there would be
+ * no way to say "remove it" that a dropped field could not also mean.
+ */
+export const setDayNote = onCall({ region: REGION }, async (request) => {
+  assertAdmin(request);
+
+  const { date, note } = parseOrThrow(
+    z.object({ date: isoDateSchema, note: z.string().trim().max(MAX_DAY_NOTE_LENGTH) }),
+    request.data,
+  );
+
+  await writeDayNote(date, note);
+  return { date, note };
 });
 
 /**
