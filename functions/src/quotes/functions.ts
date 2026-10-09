@@ -144,6 +144,23 @@ export const sendQuote = onCall({ region: REGION, secrets: QUOTE_SECRETS }, asyn
     jobSnap.ref.set({ status: 'quoted', updatedAt: timestamp }, { merge: true }),
   ]);
 
+  // Sent, not drafted: this is the point the job becomes `quoted` and the day
+  // is being held against an answer somebody else now owes us.
+  await notifyTelegram(
+    [
+      `<b>📄 Quote sent</b>`,
+      ``,
+      `${escapeHtml(quote.reference)} to ${escapeHtml(customer.name)} — ${formatMoney(quote.totalPence)}`,
+      `${formatLongDate(job.date)} — ${slotLabel(job.slot)}`,
+      ``,
+      `Valid until ${formatLongDate(quote.expiresAt)}.`,
+    ].join('\n'),
+    {
+      template: 'quote-sent',
+      relatedTo: { quoteId: quote.id, jobId: quote.jobId, customerId: quote.customerId },
+    },
+  );
+
   return { quoteId, sentTo: customer.email };
 });
 

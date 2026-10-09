@@ -1,9 +1,12 @@
 import { onCall } from 'firebase-functions/v2/https';
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { z } from 'zod';
-import { REGION } from '../lib/config';
+import { REGION, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } from '../lib/config';
 import { COLLECTIONS, db } from '../lib/firebase';
 import { assertAdmin } from '../lib/auth';
+import { formatLongDate } from '../lib/dates';
+import { notifyTelegram } from '../messaging/telegram';
+import { escapeHtml } from '../messaging/templates';
 import { isoDateSchema, parseOrThrow } from '../lib/validation';
 import {
   emptyDayBooking,
@@ -38,17 +41,49 @@ export const blockDay = onCall({ region: REGION }, async (request) => {
  * rather than optional because an absent one would be ambiguous: there would be
  * no way to say "remove it" that a dropped field could not also mean.
  */
-export const setDayNote = onCall({ region: REGION }, async (request) => {
-  assertAdmin(request);
+export const setDayNote = onCall(
+  { region: REGION, secrets: [TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID] },
+  async (request) => {
+    assertAdmin(request);
 
-  const { date, note } = parseOrThrow(
-    z.object({ date: isoDateSchema, note: z.string().trim().max(MAX_DAY_NOTE_LENGTH) }),
-    request.data,
-  );
+    const { date, note } = parseOrThrow(
+      z.object({ date: isoDateSchema, note: z.string().trim().max(MAX_DAY_NOTE_LENGTH) }),
+      request.data,
+    );
 
-  await writeDayNote(date, note);
-  return { date, note };
-});
+    const previous = await writeDayNote(date, note);
+
+    // Nothing actually changed — saving the same text again is not news.
+    if (note !== previous) {
+      await notifyTelegram(dayNoteMessage(date, note, previous), {
+        template: note ? (previous ? 'day-note-changed' : 'day-note-added') : 'day-note-cleared',
+      });
+    }
+
+    return { date, note };
+  },
+);
+
+/**
+ * The three shapes a note change takes.
+ *
+ * An edit and a clear both carry the old text: the point of hearing about them
+ * on the phone is knowing what is no longer there, which the new text alone
+ * cannot tell you.
+ */
+function dayNoteMessage(date: string, note: string, previous: string): string {
+  const day = formatLongDate(date);
+
+  if (!note) {
+    return `<b>📌 Note cleared</b>\n\n${day}\n\nWas: ${escapeHtml(previous)}`;
+  }
+
+  if (previous) {
+    return `<b>📌 Note changed</b>\n\n${day}\n\n${escapeHtml(note)}\n\nWas: ${escapeHtml(previous)}`;
+  }
+
+  return `<b>📌 Note added</b>\n\n${day}\n\n${escapeHtml(note)}`;
+}
 
 /**
  * Reconciles the diary whenever a job changes.
