@@ -157,9 +157,13 @@ export async function setDayBlocked(date: string, blocked: boolean, note?: strin
  * An empty note deletes the field rather than storing `''`: `writeDay`
  * replaces the document instead of merging, so omitting the key is the delete,
  * and `projectAvailability` already drops a falsy note from the projection.
+ *
+ * Returns whatever note it replaced (`''` when there was none), read inside the
+ * transaction so it cannot be a stale value from before someone else's write.
+ * The caller needs it to say whether a note was added, changed or cleared.
  */
-export async function writeDayNote(date: string, note: string): Promise<void> {
-  await db.runTransaction(async (tx) => {
+export async function writeDayNote(date: string, note: string): Promise<string> {
+  return db.runTransaction(async (tx) => {
     const day = await readDayBooking(tx, date);
     const updated: DayBooking = { ...day, updatedAt: nowIso() };
 
@@ -167,5 +171,6 @@ export async function writeDayNote(date: string, note: string): Promise<void> {
     else delete updated.note;
 
     writeDay(tx, updated);
+    return day.note ?? '';
   });
 }
