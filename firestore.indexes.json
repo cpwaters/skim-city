@@ -5,20 +5,6 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "date",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "jobs",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
           "fieldPath": "customerId",
           "order": "ASCENDING"
         },
