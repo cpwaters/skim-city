@@ -11,7 +11,7 @@ import { addDaysIso, formatLongDate, nowIso, todayIso } from '../lib/dates';
 import { formatMoney } from '../lib/money';
 import { notifyTelegram } from '../messaging/telegram';
 import { escapeHtml, slotLabel } from '../messaging/templates';
-import type { Customer, Invoice, Job } from '../domain';
+import type { Customer, DayBooking, Invoice, Job } from '../domain';
 import { readInstalments } from '../payments/instalments';
 
 /**
@@ -19,6 +19,11 @@ import { readInstalments } from '../payments/instalments';
  *
  * Scheduled in Europe/London rather than UTC so the digest arrives at 7am all
  * year rather than drifting an hour each time the clocks change.
+ *
+ * Carries the day's note as well as its jobs. A note is often the half of
+ * tomorrow that is not a booking — boards being dropped off, a gate code, a
+ * day being kept clear — so it has to survive an empty diary rather than being
+ * attached to a job that may not exist.
  */
 export const dailyDigest = onSchedule(
   {
@@ -30,11 +35,16 @@ export const dailyDigest = onSchedule(
   async () => {
     const tomorrow = addDaysIso(todayIso(), 1);
 
-    const jobsSnap = await db
-      .collection(COLLECTIONS.jobs)
-      .where('date', '==', tomorrow)
-      .where('status', 'in', ['confirmed', 'in_progress'])
-      .get();
+    const [jobsSnap, daySnap] = await Promise.all([
+      db
+        .collection(COLLECTIONS.jobs)
+        .where('date', '==', tomorrow)
+        .where('status', 'in', ['confirmed', 'in_progress'])
+        .get(),
+      db.collection(COLLECTIONS.dayBookings).doc(tomorrow).get(),
+    ]);
+
+    const note = (daySnap.data() as DayBooking | undefined)?.note;
 
     const lines: string[] = [`<b>Tomorrow — ${formatLongDate(tomorrow)}</b>`, ''];
 
@@ -52,6 +62,15 @@ export const dailyDigest = onSchedule(
           '',
         );
       }
+    }
+
+    // After the jobs: the note annotates the day, and on a day that has work
+    // on it the work is what you opened the message for. The job loop already
+    // leaves a blank line behind it, so only separate when something else did
+    // not — otherwise a booked day gets a double gap and an empty one a single.
+    if (note) {
+      if (lines[lines.length - 1] !== '') lines.push('');
+      lines.push(`<b>📌 Note</b>`, escapeHtml(note));
     }
 
     await notifyTelegram(lines.join('\n'), { template: 'daily-digest' });
