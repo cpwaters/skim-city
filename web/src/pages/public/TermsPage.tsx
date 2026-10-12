@@ -12,14 +12,6 @@ export function TermsPage() {
         intro="The plain-English version of how we work together."
       />
       <LegalBody updated="24 August 2026">
-        <div className="not-prose border-l-2 border-maroon-500 bg-maroon-900/25 px-4 py-3 mb-8">
-          <p className="text-sm text-[#e5a3ad]">
-            <strong>Placeholder to review.</strong> These terms are a sensible starting point
-            but have not been checked by a solicitor. Confirm the deposit, cancellation and
-            guarantee clauses reflect how you actually work before relying on them.
-          </p>
-        </div>
-
         <h2>1. Quotes</h2>
         <p>
           Quotes are free and valid for 30 days from the date issued unless stated otherwise.
